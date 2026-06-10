@@ -187,13 +187,14 @@ async def cmd_record(message: Message):
     except ValueError:
         args = message.text.split()
         
-    if len(args) < 4:
+    if len(args) < 3:
         await message.answer("Использование: /record [\"Ник\"] [\"Название_или_ID\"] [Прогресс]\nПример: /record \"f f i z z\" \"Bloodlust\" 100")
         return
         
     nick = args[1]
     level_query = args[2]
-    progress_str = args[3]
+    
+    progress_str = args[3] if len(args) >= 4 else "100"
     
     progress_start, progress_end = parse_progress(progress_str)
         
