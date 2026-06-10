@@ -1,0 +1,23 @@
+# Environments
+venv/
+env/
+.env
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Database
+*.db
+*.sqlite3
+data/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temp/Scratch files
+scratch*.py
