@@ -67,7 +67,9 @@ async def cmd_restart(message: Message):
     import sys
     import os
     await message.answer("🔄 Бот перезапускается...")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    args = [sys.executable] + sys.argv
+    args = [f'"{a}"' if ' ' in a else a for a in args]
+    os.execv(sys.executable, args)
 
 @router.message(Command("update"))
 async def cmd_update(message: Message):
@@ -86,7 +88,9 @@ async def cmd_update(message: Message):
             await message.answer("✅ Бот уже обновлен до последней версии.")
         else:
             await message.answer(f"✅ Обновление загружено:\n<pre>{out_text}</pre>\n\n🔄 Перезапускаюсь...")
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+            args = [sys.executable] + sys.argv
+            args = [f'"{a}"' if ' ' in a else a for a in args]
+            os.execv(sys.executable, args)
     else:
         await message.answer(f"❌ Ошибка обновления:\n<pre>{err_text}</pre>")
 
