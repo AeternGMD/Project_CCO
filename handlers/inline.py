@@ -41,7 +41,8 @@ async def inline_search(inline_query: InlineQuery):
                 text += f"{i}. {name} (Топ-{c['position']}) - {c['status']}\n"
                 
         result_id = hashlib.md5(f"player_{player['id']}".encode()).hexdigest()
-        desc = f"Место: {entry['rank'] if entry else 'N/A'} | Балл: {entry['score']:.2f if entry else 0}"
+        score_str = f"{entry['score']:.2f}" if entry else "0"
+        desc = f"Место: {entry['rank'] if entry else 'N/A'} | Балл: {score_str}"
         
         results.append(
             InlineQueryResultArticle(
