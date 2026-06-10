@@ -47,6 +47,11 @@ async def get_all_players() -> List[aiosqlite.Row]:
         cursor = await conn.execute("SELECT * FROM players")
         return await cursor.fetchall()
 
+async def search_players(query: str, limit: int = 10) -> List[aiosqlite.Row]:
+    async with get_db_connection() as conn:
+        cursor = await conn.execute("SELECT * FROM players WHERE nickname LIKE ? LIMIT ?", (f"%{query}%", limit))
+        return await cursor.fetchall()
+
 async def update_player(player_id: int, **kwargs):
     if not kwargs:
         return
@@ -97,6 +102,11 @@ async def get_level_by_id(level_id: int) -> Optional[aiosqlite.Row]:
 async def get_levels_by_name(level_name: str) -> List[aiosqlite.Row]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_name COLLATE NOCASE = ? ORDER BY position ASC", (level_name,))
+        return await cursor.fetchall()
+
+async def search_levels(query: str, limit: int = 10) -> List[aiosqlite.Row]:
+    async with get_db_connection() as conn:
+        cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_name LIKE ? ORDER BY position ASC LIMIT ?", (f"%{query}%", limit))
         return await cursor.fetchall()
 
 # --- Record Operations ---

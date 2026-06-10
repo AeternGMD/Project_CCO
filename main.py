@@ -8,6 +8,7 @@ from database.connection import init_db
 from handlers.root import router as root_router
 from handlers.admin import router as admin_router
 from handlers.public import router as public_router
+from handlers.inline import router as inline_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ async def main():
     dp.include_router(root_router)
     dp.include_router(admin_router)
     dp.include_router(public_router)
+    dp.include_router(inline_router)
     
     logger.info("Starting bot polling...")
     try:
