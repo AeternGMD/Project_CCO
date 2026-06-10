@@ -294,7 +294,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
                 progress_start=progress_start, progress_end=progress_end
             )
         
-    elif action == "delete":
+    elif action == "del":
         await delete_record(player_id, level_id)
         creator_str = dict(level).get('creator', 'Unknown')
         await message.answer(f"🗑 Рекорд удален: {level['level_name']} [{creator_str}] для {player['nickname']}")
