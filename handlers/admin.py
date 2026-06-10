@@ -196,7 +196,11 @@ async def cmd_record(message: Message):
     
     progress_str = args[3] if len(args) >= 4 else "100"
     
-    progress_start, progress_end = parse_progress(progress_str)
+    try:
+        progress_start, progress_end = parse_progress(progress_str)
+    except ValueError:
+        await message.answer("❌ Ошибка: неверный формат прогресса. Если ник или уровень содержит пробелы, оберните их в кавычки!\nПример: /record \"f f i z z\" \"Bloodlust\" 100")
+        return
         
     player = await get_player_by_nick(nick)
     if not player:
