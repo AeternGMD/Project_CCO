@@ -32,9 +32,14 @@ def extract_demonlist_id(val: str) -> str:
 
 @router.message(Command("add_player"))
 async def cmd_add_player(message: Message):
-    args = message.text.split()
+    import shlex
+    try:
+        args = shlex.split(message.text)
+    except ValueError:
+        args = message.text.split()
+        
     if len(args) < 6:
-        await message.answer("Использование: /add_player [Ник_в_боте] [Demonlist_ID] [pc/mob] [Город] [api:yes/no]")
+        await message.answer("Использование: /add_player [\"Ник\"] [Demonlist_ID] [Платформа] [\"Город\"] [API: 1/0]\nЕсли ник или город содержит пробелы, используйте кавычки: \"f f i z z\"")
         return
         
     nick = args[1]
@@ -100,8 +105,8 @@ async def cmd_update(message: Message):
 
 @router.message(Command("del_player"))
 async def cmd_del_player(message: Message):
-    args = message.text.split()
-    if len(args) != 2:
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
         await message.answer("Использование: /del_player [Ник]")
         return
         
@@ -116,10 +121,15 @@ async def cmd_del_player(message: Message):
 
 @router.message(Command("edit_player"))
 async def cmd_edit_player(message: Message):
-    args = message.text.split()
+    import shlex
+    try:
+        args = shlex.split(message.text)
+    except ValueError:
+        args = message.text.split()
+        
     if len(args) < 4:
         text = (
-            "Использование: /edit_player [Ник] [поле] [значение]\n\n"
+            "Использование: /edit_player [\"Ник\"] [поле] [значение]\n\n"
             "Доступные поля:\n"
             "- platform (pc или mob)\n"
             "- location (Город)\n"
@@ -133,7 +143,7 @@ async def cmd_edit_player(message: Message):
         
     nick = args[1]
     field = args[2].lower()
-    value = " ".join(args[3:])
+    value = args[3]
     
     player = await get_player_by_nick(nick)
     if not player:
@@ -171,25 +181,21 @@ def parse_progress(prog_str: str):
 
 @router.message(Command("record"))
 async def cmd_record(message: Message):
-    args = message.text.split()
-    if len(args) < 3:
-        await message.answer("Использование: /record [Ник] [Название_или_ID] [Прогресс]")
+    import shlex
+    try:
+        args = shlex.split(message.text)
+    except ValueError:
+        args = message.text.split()
+        
+    if len(args) < 4:
+        await message.answer("Использование: /record [\"Ник\"] [\"Название_или_ID\"] [Прогресс]\nПример: /record \"f f i z z\" \"Bloodlust\" 100")
         return
         
     nick = args[1]
+    level_query = args[2]
+    progress_str = args[3]
     
-    # Check if progress is provided at the end, else it's 100%
-    last_arg = args[-1]
-    progress_start, progress_end = 0, 100
-    if '%' in last_arg or '-' in last_arg or last_arg.isdigit():
-        # Might be progress
-        try:
-            progress_start, progress_end = parse_progress(last_arg)
-            level_query = " ".join(args[2:-1])
-        except ValueError:
-            level_query = " ".join(args[2:])
-    else:
-        level_query = " ".join(args[2:])
+    progress_start, progress_end = parse_progress(progress_str)
         
     player = await get_player_by_nick(nick)
     if not player:
@@ -200,13 +206,18 @@ async def cmd_record(message: Message):
 
 @router.message(Command("del_record"))
 async def cmd_del_record(message: Message):
-    args = message.text.split()
+    import shlex
+    try:
+        args = shlex.split(message.text)
+    except ValueError:
+        args = message.text.split()
+        
     if len(args) < 3:
-        await message.answer("Использование: /del_record [Ник] [Уровень]")
+        await message.answer("Использование: /del_record [\"Ник\"] [\"Уровень\"]")
         return
         
     nick = args[1]
-    level_query = " ".join(args[2:])
+    level_query = args[2]
     
     player = await get_player_by_nick(nick)
     if not player:

@@ -196,12 +196,12 @@ async def cmd_top_mobile(message: Message):
 
 @router.message(Command("top_location"))
 async def cmd_top_location(message: Message):
-    args = message.text.split()
+    args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("Использование: /top_location [Город]")
         return
         
-    location = " ".join(args[1:])
+    location = args[1]
     if location == "-" or location.lower() == "неизвестно":
         await message.answer("❌ Для неизвестных городов топ не формируется.")
         return
@@ -257,7 +257,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
 
 @router.message(Command("player", "profile"))
 async def cmd_profile(message: Message):
-    args = message.text.split()
+    args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("Использование: /profile [Ник]")
         return
@@ -280,12 +280,12 @@ async def cmd_profile(message: Message):
 
 @router.message(Command("lvl", "level"))
 async def cmd_level(message: Message):
-    args = message.text.split()
+    args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("Использование: /lvl [Название_или_ID]")
         return
         
-    query = " ".join(args[1:])
+    query = args[1]
     levels = []
     
     if query.isdigit():
@@ -366,13 +366,18 @@ async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
 
 @router.message(Command("try"))
 async def cmd_try(message: Message, state: FSMContext):
-    args = message.text.split(maxsplit=2)
+    import shlex
+    try:
+        args = shlex.split(message.text)
+    except ValueError:
+        args = message.text.split()
+        
     if len(args) < 3:
-        await message.answer("Использование: /try [Ник] [Уровень1], [Уровень2]...\nНапример: /try Player Bloodbath, 12345")
+        await message.answer("Использование: /try [\"Ник\"] [\"Уровень1, Уровень2...\"]\nНапример: /try \"f f i z z\" \"Bloodbath, Tartarus\"")
         return
         
     nick = args[1]
-    levels_str = args[2]
+    levels_str = " ".join(args[2:])
     
     player = await get_player_by_nick(nick)
     if not player:
