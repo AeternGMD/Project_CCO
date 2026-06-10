@@ -4,23 +4,37 @@ from database.connection import get_db_connection
 
 # --- Admin Operations ---
 
+_admins_cache = None
+
 async def is_admin(tg_id: int) -> bool:
     from config import ROOT_ID
     if tg_id == ROOT_ID:
         return True
-    async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT 1 FROM admins WHERE tg_id = ?", (tg_id,))
-        return await cursor.fetchone() is not None
+        
+    global _admins_cache
+    if _admins_cache is None:
+        async with get_db_connection() as conn:
+            cursor = await conn.execute("SELECT tg_id FROM admins")
+            rows = await cursor.fetchall()
+            _admins_cache = {r['tg_id'] for r in rows}
+            
+    return tg_id in _admins_cache
 
 async def add_admin(tg_id: int):
     async with get_db_connection() as conn:
         await conn.execute("INSERT OR IGNORE INTO admins (tg_id) VALUES (?)", (tg_id,))
         await conn.commit()
+    global _admins_cache
+    if _admins_cache is not None:
+        _admins_cache.add(tg_id)
 
 async def del_admin(tg_id: int):
     async with get_db_connection() as conn:
         await conn.execute("DELETE FROM admins WHERE tg_id = ?", (tg_id,))
         await conn.commit()
+    global _admins_cache
+    if _admins_cache is not None:
+        _admins_cache.discard(tg_id)
 
 # --- Player Operations ---
 
@@ -31,6 +45,7 @@ async def add_player(nickname: str, demonlist_id: str, platform: str, location: 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (tg_id, nickname, demonlist_id, platform, location, api_sync, contacts))
         await conn.commit()
+    mark_leaderboard_dirty()
 
 async def get_player_by_nick(nickname: str) -> Optional[aiosqlite.Row]:
     async with get_db_connection() as conn:
@@ -62,13 +77,36 @@ async def update_player(player_id: int, **kwargs):
     async with get_db_connection() as conn:
         await conn.execute(f"UPDATE players SET {set_clause} WHERE id = ?", values)
         await conn.commit()
+    mark_leaderboard_dirty()
 
 async def delete_player(player_id: int):
     async with get_db_connection() as conn:
         await conn.execute("DELETE FROM players WHERE id = ?", (player_id,))
         await conn.commit()
+    mark_leaderboard_dirty()
 
 # --- Level Operations ---
+
+_ambiguous_names_cache = None
+_total_levels_cache = None
+_leaderboard_dirty = True
+
+def mark_leaderboard_dirty():
+    global _leaderboard_dirty
+    _leaderboard_dirty = True
+
+def is_leaderboard_dirty() -> bool:
+    return _leaderboard_dirty
+
+def clear_leaderboard_dirty():
+    global _leaderboard_dirty
+    _leaderboard_dirty = False
+
+def invalidate_level_caches():
+    global _ambiguous_names_cache, _total_levels_cache
+    _ambiguous_names_cache = None
+    _total_levels_cache = None
+    mark_leaderboard_dirty()
 
 async def upsert_level(level_id: int, level_name: str, position: int, creator: str = "Unknown"):
     async with get_db_connection() as conn:
@@ -81,18 +119,25 @@ async def upsert_level(level_id: int, level_name: str, position: int, creator: s
                 creator=excluded.creator
         ''', (level_id, level_name, position, creator))
         await conn.commit()
+    invalidate_level_caches()
 
 async def get_ambiguous_level_names() -> set:
-    async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT level_name FROM levels_cache GROUP BY level_name COLLATE NOCASE HAVING count(*) > 1")
-        rows = await cursor.fetchall()
-        return {r[0].lower() for r in rows}
+    global _ambiguous_names_cache
+    if _ambiguous_names_cache is None:
+        async with get_db_connection() as conn:
+            cursor = await conn.execute("SELECT level_name FROM levels_cache GROUP BY level_name COLLATE NOCASE HAVING count(*) > 1")
+            rows = await cursor.fetchall()
+            _ambiguous_names_cache = {r[0].lower() for r in rows}
+    return _ambiguous_names_cache
 
 async def get_total_levels() -> int:
-    async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT COUNT(*) as cnt FROM levels_cache")
-        row = await cursor.fetchone()
-        return row['cnt'] if row else 0
+    global _total_levels_cache
+    if _total_levels_cache is None:
+        async with get_db_connection() as conn:
+            cursor = await conn.execute("SELECT COUNT(*) as cnt FROM levels_cache")
+            row = await cursor.fetchone()
+            _total_levels_cache = row['cnt'] if row else 0
+    return _total_levels_cache
 
 async def get_level_by_id(level_id: int) -> Optional[aiosqlite.Row]:
     async with get_db_connection() as conn:
@@ -133,6 +178,7 @@ async def add_record(player_id: int, level_id: int, progress_start: int, progres
             VALUES (?, ?, ?, ?, ?)
         ''', (player_id, level_id, progress_start, progress_end, status))
         await conn.commit()
+    mark_leaderboard_dirty()
 
 async def get_player_records(player_id: int) -> List[aiosqlite.Row]:
     async with get_db_connection() as conn:
@@ -155,11 +201,13 @@ async def delete_record(player_id: int, level_id: int):
     async with get_db_connection() as conn:
         await conn.execute("DELETE FROM records WHERE player_id = ? AND level_id = ?", (player_id, level_id))
         await conn.commit()
+    mark_leaderboard_dirty()
 
 async def update_record_status(record_id: int, status: str):
     async with get_db_connection() as conn:
         await conn.execute("UPDATE records SET status = ? WHERE id = ?", (status, record_id))
         await conn.commit()
+    mark_leaderboard_dirty()
 
 # --- Settings ---
 
@@ -201,3 +249,33 @@ async def get_ban_info(user_id: int) -> Optional[aiosqlite.Row]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM banned_users WHERE user_id = ?", (user_id,))
         return await cursor.fetchone()
+
+# --- Fast Scoring (No N+1 queries) ---
+
+async def get_all_player_scores() -> Dict[int, float]:
+    """Efficiently calculate scores for all players in one DB pass."""
+    total_levels = await get_total_levels()
+    
+    async with get_db_connection() as conn:
+        cursor = await conn.execute('''
+            SELECT r.player_id, l.position
+            FROM records r
+            JOIN levels_cache l ON r.level_id = l.level_id
+            WHERE r.progress_start = 0 AND r.progress_end = 100
+            ORDER BY r.player_id, l.position ASC
+        ''')
+        rows = await cursor.fetchall()
+        
+    scores = {}
+    from collections import defaultdict
+    completions_by_player = defaultdict(list)
+    for row in rows:
+        if len(completions_by_player[row['player_id']]) < 5:
+            completions_by_player[row['player_id']].append(row['position'])
+            
+    for player_id, positions in completions_by_player.items():
+        while len(positions) < 5:
+            positions.append(total_levels + 1)
+        scores[player_id] = sum(positions) / 5.0
+        
+    return scores

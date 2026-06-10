@@ -5,12 +5,26 @@ from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
+_global_conn = None
+
+async def init_connection():
+    global _global_conn
+    if _global_conn is None:
+        _global_conn = await aiosqlite.connect(DB_PATH)
+        _global_conn.row_factory = aiosqlite.Row
+
+async def close_connection():
+    global _global_conn
+    if _global_conn:
+        await _global_conn.close()
+        _global_conn = None
+
 @asynccontextmanager
 async def get_db_connection():
-    """Returns an active aiosqlite connection context manager."""
-    async with aiosqlite.connect(DB_PATH) as conn:
-        conn.row_factory = aiosqlite.Row
-        yield conn
+    """Returns an active aiosqlite connection context manager (using global connection)."""
+    if _global_conn is None:
+        await init_connection()
+    yield _global_conn
 
 async def init_db():
     """Initializes the database schema if it doesn't exist."""

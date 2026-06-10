@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-from database.connection import init_db
+from database.connection import init_db, init_connection, close_connection
 
 # Routers
 from handlers.root import router as root_router
@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def main():
+    await init_connection()
     await init_db()
     
     bot = Bot(token=BOT_TOKEN)
@@ -44,6 +45,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
+        await close_connection()
 
 if __name__ == '__main__':
     try:
