@@ -364,3 +364,74 @@ async def cmd_restore(message: Message, bot: Bot):
         
     await bot.download(doc, destination=DB_PATH)
     await message.answer("✅ База данных успешно восстановлена!")
+
+# --- Управление банами ---
+
+@router.message(Command("ban"))
+async def cmd_ban(message: Message):
+    args = message.text.split(maxsplit=2)
+    if len(args) < 2:
+        await message.answer("Использование: /ban <user_id> [время: 1m/м, 2h/ч, 3d/д] [причина]")
+        return
+        
+    try:
+        user_id = int(args[1])
+    except ValueError:
+        await message.answer("❌ Неверный формат user_id.")
+        return
+        
+    banned_until = None
+    reason = None
+    
+    if len(args) == 3:
+        parts = args[2].split(maxsplit=1)
+        time_str = parts[0]
+        import re
+        match = re.match(r"^(\d+)([mмhчdд])$", time_str.lower())
+        if match:
+            val = int(match.group(1))
+            unit = match.group(2)
+            
+            if unit in ('m', 'м'):
+                delta = val * 60
+            elif unit in ('h', 'ч'):
+                delta = val * 3600
+            elif unit in ('d', 'д'):
+                delta = val * 86400
+                
+            import time
+            banned_until = int(time.time()) + delta
+            
+            if len(parts) > 1:
+                reason = parts[1]
+        else:
+            reason = args[2]
+            
+    from database.models import ban_user
+    await ban_user(user_id, banned_until, reason)
+    
+    if banned_until:
+        import datetime
+        dt = datetime.datetime.fromtimestamp(banned_until).strftime('%Y-%m-%d %H:%M:%S')
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен до {dt}.\nПричина: {reason or 'Не указана'}")
+    else:
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен навсегда.\nПричина: {reason or 'Не указана'}")
+
+@router.message(Command("unban"))
+async def cmd_unban(message: Message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("Использование: /unban <user_id>")
+        return
+        
+    try:
+        user_id = int(args[1])
+    except ValueError:
+        await message.answer("❌ Неверный формат user_id.")
+        return
+        
+    from database.models import unban_user
+    if await unban_user(user_id):
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> разбанен.")
+    else:
+        await message.answer(f"❌ Пользователь <code>{user_id}</code> не найден в списке забаненных.")
