@@ -45,6 +45,9 @@ router = Router()
 
 @router.message(Command("start", "help"))
 async def cmd_start(message: Message):
+    from database.models import is_admin
+    from config import ROOT_ID
+    
     text = (
         "👋 Привет! Я бот для ведения топа игроков Geometry Dash.\n\n"
         "👥 Доступные публичные команды:\n"
@@ -53,25 +56,34 @@ async def cmd_start(message: Message):
         "/top_location - Топ по городу\n"
         "/profile (или /player) - Профиль игрока\n"
         "/level (или /lvl) - Информация об уровне\n"
-        "/try - Симулятор прогресса\n\n"
-        "🛡 Админские команды:\n"
-        "/add_player - Добавить игрока\n"
-        "/edit_player - Изменить профиль игрока\n"
-        "/del_player - Удалить игрока\n"
-        "/record - Добавить рекорд вручную\n"
-        "/del_record - Удалить рекорд\n"
-        "/ban - Выдать бан\n"
-        "/unban - Снять бан\n"
-        "/info_update - Синхронизировать с Demonlist\n"
-        "/backup - Скачать базу данных\n"
-        "/restore - Восстановить базу данных\n"
-        "/toggle_notifications - Управление уведомлениями\n"
-        "/update - Обновить код с GitHub\n"
-        "/restart - Перезапустить бота\n\n"
-        "👑 Команды владельца:\n"
-        "/add_admin - Назначить администратора\n"
-        "/del_admin - Снять администратора"
+        "/try - Симулятор прогресса\n"
     )
+    
+    if await is_admin(message.from_user.id):
+        text += (
+            "\n🛡 Админские команды:\n"
+            "/add_player - Добавить игрока\n"
+            "/edit_player - Изменить профиль игрока\n"
+            "/del_player - Удалить игрока\n"
+            "/record - Добавить рекорд вручную\n"
+            "/del_record - Удалить рекорд\n"
+            "/ban - Выдать бан\n"
+            "/unban - Снять бан\n"
+            "/info_update - Синхронизировать с Demonlist\n"
+            "/backup - Скачать базу данных\n"
+            "/restore - Восстановить базу данных\n"
+            "/toggle_notifications - Управление уведомлениями\n"
+            "/update - Обновить код с GitHub\n"
+            "/restart - Перезапустить бота\n"
+        )
+        
+    if message.from_user.id == ROOT_ID:
+        text += (
+            "\n👑 Команды владельца:\n"
+            "/add_admin - Назначить администратора\n"
+            "/del_admin - Снять администратора"
+        )
+        
     await message.answer(text)
 
 async def send_leaderboard(message_or_query, leaderboard: list, title: str, filter_type: str, page: int = 1):
