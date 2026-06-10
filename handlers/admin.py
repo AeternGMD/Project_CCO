@@ -38,8 +38,13 @@ async def cmd_add_player(message: Message):
     except ValueError:
         args = message.text.split()
         
-    if len(args) < 6:
-        await message.answer("Использование: /add_player [\"Ник\"] [Demonlist_ID] [Платформа] [\"Город\"] [API: 1/0]\nЕсли ник или город содержит пробелы, используйте кавычки: \"f f i z z\"")
+    if len(args) != 6:
+        await message.answer(
+            "❌ Ошибка формата!\n"
+            "Использование: /add_player [Ник] [Demonlist_ID] [Платформа] [Город] [API: 1/0]\n\n"
+            "⚠️ Важно: Если ник или город содержит пробелы, ОБЯЗАТЕЛЬНО используйте двойные кавычки!\n"
+            "Пример: /add_player \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1"
+        )
         return
         
     nick = args[1]
@@ -127,18 +132,13 @@ async def cmd_edit_player(message: Message):
     except ValueError:
         args = message.text.split()
         
-    if len(args) < 4:
-        text = (
-            "Использование: /edit_player [\"Ник\"] [поле] [значение]\n\n"
-            "Доступные поля:\n"
-            "- platform (pc или mob)\n"
-            "- location (Город)\n"
-            "- api_sync (yes или no)\n"
-            "- demonlist_id (числовой ID или ссылка)\n"
-            "- contacts (любой текст или ссылка)\n"
-            "- tg_id (числовой Telegram ID пользователя)"
+    if len(args) != 4:
+        await message.answer(
+            "❌ Использование: /edit_player [Ник] [Поле] [Новое_Значение]\n"
+            "Поля: platform, location, api_sync, contacts, demonlist_id, tg_id\n\n"
+            "⚠️ Важно: Если значение содержит пробелы, ОБЯЗАТЕЛЬНО используйте кавычки!\n"
+            "Пример: /edit_player Kwikzy location \"Нижний Тагил\""
         )
-        await message.answer(text)
         return
         
     nick = args[1]
