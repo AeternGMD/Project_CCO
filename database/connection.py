@@ -33,7 +33,6 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tg_id INTEGER,
                 nickname TEXT UNIQUE NOT NULL,
                 demonlist_id TEXT NOT NULL,
                 platform TEXT NOT NULL,
@@ -47,7 +46,9 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS levels_cache (
                 level_id INTEGER PRIMARY KEY,
                 level_name TEXT NOT NULL,
-                position INTEGER NOT NULL
+                position INTEGER NOT NULL,
+                creator TEXT DEFAULT 'Unknown',
+                ingame_id INTEGER
             )
         ''')
         

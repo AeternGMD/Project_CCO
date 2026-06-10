@@ -234,7 +234,9 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
             name = c['level_name']
             if name.lower() in ambiguous_names:
                 name += f" [{dict(c).get('creator', 'Unknown')}]"
-            text += f"{i}. {name} (Топ-{c['position']}) - {c['status']}\n"
+            
+            status_text = "Подтверждено" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
+            text += f"{i}. {name} (Топ-{c['position']}) - {status_text}\n"
         
     if progresses:
         text += "\n📈 Прогрессы:\n"
@@ -329,13 +331,16 @@ async def generate_level_info_text(level) -> str:
     progresses.sort(key=lambda x: (x['progress_start'] != 0, x['progress_end']))
     
     creator_str = dict(level).get('creator', 'Unknown')
-    text = f"🌋 Уровень: {level['level_name']} [{creator_str}] (Топ-{level['position']} | ID: {level['level_id']})\n\n"
+    ingame_id = dict(level).get('ingame_id')
+    id_str = f"ID: {ingame_id}" if ingame_id else f"DL ID: {level['level_id']}"
+    text = f"🌋 Уровень: {level['level_name']} [{creator_str}] (Топ-{level['position']} | {id_str})\n\n"
     
     text += f"🏆 Прошли ({len(completions)}):\n"
     if not completions:
         text += "- Пока никто\n"
     for c in completions:
-        text += f"- {c['nickname']} ({c['status']})\n"
+        status_text = "Подтверждено" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
+        text += f"- {c['nickname']} ({status_text})\n"
         
     if progresses:
         from collections import defaultdict

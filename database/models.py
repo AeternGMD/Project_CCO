@@ -38,12 +38,12 @@ async def del_admin(tg_id: int):
 
 # --- Player Operations ---
 
-async def add_player(nickname: str, demonlist_id: str, platform: str, location: str, api_sync: bool, tg_id: Optional[int] = None, contacts: Optional[str] = None):
+async def add_player(nickname: str, demonlist_id: str, platform: str, location: str, api_sync: bool, contacts: Optional[str] = None):
     async with get_db_connection() as conn:
         await conn.execute('''
-            INSERT INTO players (tg_id, nickname, demonlist_id, platform, location, api_sync, contacts)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (tg_id, nickname, demonlist_id, platform, location, api_sync, contacts))
+            INSERT INTO players (nickname, demonlist_id, platform, location, api_sync, contacts)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (nickname, demonlist_id, platform, location, api_sync, contacts))
         await conn.commit()
     mark_leaderboard_dirty()
 
@@ -108,16 +108,17 @@ def invalidate_level_caches():
     _total_levels_cache = None
     mark_leaderboard_dirty()
 
-async def upsert_level(level_id: int, level_name: str, position: int, creator: str = "Unknown"):
+async def upsert_level(level_id: int, level_name: str, position: int, creator: str = "Unknown", ingame_id: Optional[int] = None):
     async with get_db_connection() as conn:
         await conn.execute('''
-            INSERT INTO levels_cache (level_id, level_name, position, creator)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO levels_cache (level_id, level_name, position, creator, ingame_id)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(level_id) DO UPDATE SET
                 level_name=excluded.level_name,
                 position=excluded.position,
-                creator=excluded.creator
-        ''', (level_id, level_name, position, creator))
+                creator=excluded.creator,
+                ingame_id=excluded.ingame_id
+        ''', (level_id, level_name, position, creator, ingame_id))
         await conn.commit()
     invalidate_level_caches()
 

@@ -135,7 +135,7 @@ async def cmd_edit_player(message: Message):
     if len(args) != 4:
         await message.answer(
             "❌ Использование: /edit_player [Ник] [Поле] [Новое_Значение]\n"
-            "Поля: platform, location, api_sync, contacts, demonlist_id, tg_id\n\n"
+            "Поля: platform, location, api_sync, contacts, demonlist_id\n\n"
             "⚠️ Важно: Если значение содержит пробелы, ОБЯЗАТЕЛЬНО используйте кавычки!\n"
             "Пример: /edit_player Kwikzy location \"Нижний Тагил\""
         )
@@ -150,7 +150,7 @@ async def cmd_edit_player(message: Message):
         await message.answer("❌ Игрок не найден.")
         return
         
-    valid_fields = ['platform', 'location', 'api_sync', 'contacts', 'demonlist_id', 'tg_id']
+    valid_fields = ['platform', 'location', 'api_sync', 'contacts', 'demonlist_id']
     if field not in valid_fields:
         await message.answer(f"❌ Неверное поле. Допустимые: {', '.join(valid_fields)}")
         return
@@ -158,12 +158,6 @@ async def cmd_edit_player(message: Message):
     update_data = {}
     if field == 'api_sync':
         update_data[field] = value.lower() in ['yes', '1', 'true']
-    elif field == 'tg_id':
-        try:
-            update_data[field] = int(value)
-        except ValueError:
-            await message.answer("❌ TG_ID должен быть числом.")
-            return
     elif field == 'demonlist_id':
         update_data[field] = extract_demonlist_id(value)
     else:

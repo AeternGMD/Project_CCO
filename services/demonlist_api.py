@@ -29,6 +29,7 @@ async def fetch_levels(progress_callback=None) -> int:
                 total_levels = len(levels)
                 for i, lvl in enumerate(levels):
                     level_id = lvl.get('id')
+                    ingame_id = lvl.get('ingame_id')
                     level_name = lvl.get('name')
                     position = lvl.get('placement')
                     
@@ -40,7 +41,7 @@ async def fetch_levels(progress_callback=None) -> int:
                         elif isinstance(creator_obj, str):
                             creator = creator_obj
                             
-                        await upsert_level(int(level_id), str(level_name), int(position), creator)
+                        await upsert_level(int(level_id), str(level_name), int(position), creator, ingame_id=ingame_id)
                         updated_count += 1
                         
                     if progress_callback and i % 300 == 0:
