@@ -62,6 +62,34 @@ async def cmd_toggle_notifications(message: Message):
     status = "включены 🔔" if new_state == "true" else "выключены 🔕"
     await message.answer(f"Уведомления в канале теперь {status}.")
 
+@router.message(Command("restart"))
+async def cmd_restart(message: Message):
+    import sys
+    import os
+    await message.answer("🔄 Бот перезапускается...")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+@router.message(Command("update"))
+async def cmd_update(message: Message):
+    import asyncio
+    import sys
+    import os
+    await message.answer("⬇️ Скачиваю обновления с GitHub...")
+    proc = await asyncio.create_subprocess_shell("git pull origin main", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
+    
+    out_text = stdout.decode('utf-8', errors='ignore').strip()
+    err_text = stderr.decode('utf-8', errors='ignore').strip()
+    
+    if proc.returncode == 0:
+        if "Already up to date." in out_text or "Уже обновлено." in out_text:
+            await message.answer("✅ Бот уже обновлен до последней версии.")
+        else:
+            await message.answer(f"✅ Обновление загружено:\n<pre>{out_text}</pre>\n\n🔄 Перезапускаюсь...")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+    else:
+        await message.answer(f"❌ Ошибка обновления:\n<pre>{err_text}</pre>")
+
 @router.message(Command("del_player"))
 async def cmd_del_player(message: Message):
     args = message.text.split()
