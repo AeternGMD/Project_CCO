@@ -24,6 +24,12 @@ async def main():
     dp.include_router(public_router)
     dp.include_router(inline_router)
     
+    from middlewares.throttling import ThrottlingMiddleware
+    middleware = ThrottlingMiddleware(limit=2.5)
+    dp.message.middleware(middleware)
+    dp.callback_query.middleware(middleware)
+    dp.inline_query.middleware(middleware)
+    
     from database.models import get_setting, set_setting
     notify_id = await get_setting("restart_notify")
     if notify_id:

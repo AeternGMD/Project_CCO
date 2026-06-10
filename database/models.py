@@ -177,3 +177,27 @@ async def set_setting(key: str, value: str):
             ON CONFLICT(key) DO UPDATE SET value=excluded.value
         ''', (key, str(value)))
         await conn.commit()
+
+# --- Bans ---
+
+async def ban_user(user_id: int, banned_until: int = None, reason: str = None):
+    async with get_db_connection() as conn:
+        await conn.execute('''
+            INSERT INTO banned_users (user_id, banned_until, reason)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET 
+                banned_until=excluded.banned_until,
+                reason=excluded.reason
+        ''', (user_id, banned_until, reason))
+        await conn.commit()
+
+async def unban_user(user_id: int) -> bool:
+    async with get_db_connection() as conn:
+        cursor = await conn.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
+        await conn.commit()
+        return cursor.rowcount > 0
+
+async def get_ban_info(user_id: int) -> Optional[aiosqlite.Row]:
+    async with get_db_connection() as conn:
+        cursor = await conn.execute("SELECT * FROM banned_users WHERE user_id = ?", (user_id,))
+        return await cursor.fetchone()

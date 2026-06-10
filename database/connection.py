@@ -63,6 +63,14 @@ async def init_db():
             )
         ''')
         
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS banned_users (
+                user_id INTEGER PRIMARY KEY,
+                banned_until INTEGER,
+                reason TEXT
+            )
+        ''')
+        
         await conn.commit()
         
         try:
