@@ -17,29 +17,14 @@ async def inline_search(inline_query: InlineQuery):
     lb = await get_leaderboard() if players else []
     ambiguous_names = await get_ambiguous_level_names()
     
+    from handlers.public import generate_player_profile_text, generate_level_info_text
+    
     for player in players:
         entry = next((item for item in lb if item['player']['id'] == player['id']), None)
-        
-        text = f"👤 Профиль {player['nickname']}\n"
-        text += f"Платформа: {player['platform']}\n"
-        text += f"Город: {'Неизвестно' if player['location'] == '-' else player['location']}\n"
-        if entry:
-            text += f"Средний балл: {entry['score']:.2f}\n"
-            text += f"Место в топе: {entry['rank']}\n"
-            
         records = await get_player_records(player['id'])
-        completions = [r for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
-        completions.sort(key=lambda x: x['position'])
-        top_5 = completions[:5]
         
-        if top_5:
-            text += "\n🔥 Топ-5 уровней:\n"
-            for i, c in enumerate(top_5, 1):
-                name = c['level_name']
-                if name.lower() in ambiguous_names:
-                    name += f" [{dict(c).get('creator', 'Unknown')}]"
-                text += f"{i}. {name} (Топ-{c['position']}) - {c['status']}\n"
-                
+        text = generate_player_profile_text(player, entry, records, ambiguous_names)
+        
         result_id = hashlib.md5(f"player_{player['id']}".encode()).hexdigest()
         score_str = f"{entry['score']:.2f}" if entry else "0"
         desc = f"Место: {entry['rank'] if entry else 'N/A'} | Балл: {score_str}"
@@ -59,11 +44,7 @@ async def inline_search(inline_query: InlineQuery):
         lvl_name = lvl['level_name']
         creator = dict(lvl).get('creator', 'Unknown')
         
-        text = f"⚙️ Уровень {lvl_name} [{creator}]\n"
-        text += f"Позиция: Топ-{lvl['position']} в Demonlist\n"
-        
-        # We could add top players here if we want, but it requires joining records and calculating scores.
-        # Let's keep it simple for now to avoid slow inline queries.
+        text = await generate_level_info_text(lvl)
         
         result_id = hashlib.md5(f"level_{lvl['level_id']}".encode()).hexdigest()
         

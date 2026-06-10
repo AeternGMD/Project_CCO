@@ -51,8 +51,8 @@ async def cmd_start(message: Message):
         "/top - Общий топ (показывает 5 хардестов и достойные прогрессы)\n"
         "/top_mobile - Топ мобильных игроков\n"
         "/top_location [Город] - Топ по городу\n"
-        "/profile [Ник] - Подробный профиль игрока\n"
-        "/lvl [Уровень] - Информация об уровне и рекордах\n"
+        "/profile или /player [Ник] - Подробный профиль игрока\n"
+        "/level или /lvl [Уровень] - Информация об уровне и рекордах\n"
         "/try [Ник] [Уровни] - Симулятор прогресса\n\n"
         "🛡 Админские команды:\n"
         "/add_player - Добавить игрока (Ник, Demonlist ID, Платформа, Город, API)\n"
@@ -195,26 +195,10 @@ async def cmd_top_location(message: Message):
     lb = await get_leaderboard(filter_location=location)
     await send_leaderboard(message, lb, f"Топ по городу: {location}", f"loc:{location}")
 
-@router.message(Command("player", "profile"))
-async def cmd_profile(message: Message):
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("Использование: /profile [Ник]")
-        return
-        
-    nick = args[1]
-    player = await get_player_by_nick(nick)
-    if not player:
-        await message.answer("❌ Игрок не найден.")
-        return
-        
-    lb = await get_leaderboard()
-    entry = next((item for item in lb if item['player']['id'] == player['id']), None)
-    
+def generate_player_profile_text(player, entry, records, ambiguous_names):
     score_str = f"{entry['score']:.2f}" if entry else "N/A"
     place_str = f"{entry['rank']}" if entry else "Вне топа (нет прохождений)"
     
-    records = await get_player_records(player['id'])
     completions = [r for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
     completions.sort(key=lambda x: x['position'])
     top_5 = completions[:5]
@@ -227,9 +211,6 @@ async def cmd_profile(message: Message):
     loc_str = "Неизвестно" if player['location'] == "-" else player['location']
     text += f"Платформа: {player['platform']}\nГород: {loc_str}\n"
     text += f"Средний балл: {score_str}\nМесто в топе: {place_str}\n\n"
-    
-    from database.models import get_ambiguous_level_names
-    ambiguous_names = await get_ambiguous_level_names()
     
     text += "🔥 Топ-5 уровней:\n"
     if not top_5:
@@ -258,6 +239,29 @@ async def cmd_profile(message: Message):
         for (lvl_name, pos), p_list in grouped_progs.items():
             text += f"- {lvl_name} (Топ-{pos}) {' | '.join(p_list)}\n"
             
+    return text
+
+@router.message(Command("player", "profile"))
+async def cmd_profile(message: Message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("Использование: /profile [Ник]")
+        return
+        
+    nick = args[1]
+    player = await get_player_by_nick(nick)
+    if not player:
+        await message.answer("❌ Игрок не найден.")
+        return
+        
+    lb = await get_leaderboard()
+    entry = next((item for item in lb if item['player']['id'] == player['id']), None)
+    records = await get_player_records(player['id'])
+    
+    from database.models import get_ambiguous_level_names
+    ambiguous_names = await get_ambiguous_level_names()
+    
+    text = generate_player_profile_text(player, entry, records, ambiguous_names)
     await message.answer(text)
 
 @router.message(Command("lvl", "level"))
@@ -294,7 +298,7 @@ async def cmd_level(message: Message):
         
     await render_level_info(levels[0], message)
 
-async def render_level_info(level, message_or_query):
+async def generate_level_info_text(level) -> str:
     from database.connection import get_db_connection
     async with get_db_connection() as conn:
         cursor = await conn.execute('''
@@ -330,6 +334,11 @@ async def render_level_info(level, message_or_query):
         text += f"\n📈 Прогрессы ({len(grouped_progs)}):\n"
         for nickname, p_list in grouped_progs.items():
             text += f"- {nickname} {' | '.join(p_list)}\n"
+            
+    return text
+
+async def render_level_info(level, message_or_query):
+    text = await generate_level_info_text(level)
             
     if hasattr(message_or_query, 'message'):
         await message_or_query.message.edit_text(text)
