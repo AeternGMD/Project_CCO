@@ -175,7 +175,7 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
     elif ftype == "mob":
         lb = await get_leaderboard(filter_platform="mob")
         title = "Топ мобильных игроков"
-    elif ftype.startswith("loc:"):
+    elif ftype.startswith("loc="):
         loc = ftype[4:]
         lb = await get_leaderboard(filter_location=loc)
         title = f"Топ по городу: {loc}"
@@ -207,7 +207,7 @@ async def cmd_top_location(message: Message):
         return
         
     lb = await get_leaderboard(filter_location=location)
-    await send_leaderboard(message, lb, f"Топ по городу: {location}", f"loc:{location}")
+    await send_leaderboard(message, lb, f"Топ по городу: {location}", f"loc={location}")
 
 def generate_player_profile_text(player, entry, records, ambiguous_names):
     score_str = f"{entry['score']:.2f}" if entry else "N/A"
