@@ -249,7 +249,13 @@ async def process_record_action(message: Message, action: str, player_id: int, l
         await add_record(player_id, level_id, progress_start, progress_end, "Manual")
         
         creator_str = dict(level).get('creator', 'Unknown')
-        await message.answer(f"✅ Добавлено: {level['level_name']} [{creator_str}] ({progress_end}%) для {player['nickname']}")
+        
+        if progress_start > 0:
+            prog_str = f"{progress_start}-{progress_end}%"
+        else:
+            prog_str = f"{progress_end}%"
+            
+        await message.answer(f"✅ Добавлено: {level['level_name']} [{creator_str}] ({prog_str}) для {player['nickname']}")
         
         # Notify globally if it's a new 100% completion
         if progress_end == 100:
