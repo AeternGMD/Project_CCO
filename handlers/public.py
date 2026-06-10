@@ -17,6 +17,10 @@ class TryResolveCallback(CallbackData, prefix="tryres"):
 class LvlCallback(CallbackData, prefix="lvl"):
     level_id: int
 
+class TopCallback(CallbackData, prefix="top"):
+    page: int
+    filter_type: str
+
 def filter_best_progresses(progresses, group_by_key='level_id'):
     from collections import defaultdict
     by_group = defaultdict(list)
@@ -66,13 +70,31 @@ async def cmd_start(message: Message):
     )
     await message.answer(text)
 
-async def send_leaderboard(message: Message, leaderboard: list, title: str):
+async def send_leaderboard(message_or_query, leaderboard: list, title: str, filter_type: str, page: int = 1):
     if not leaderboard:
-        await message.answer(f"{title}\n\nТоп пуст.")
+        if hasattr(message_or_query, 'message'):
+            await message_or_query.message.edit_text(f"{title}\n\nТоп пуст.")
+        else:
+            await message_or_query.answer(f"{title}\n\nТоп пуст.")
         return
         
-    text = f"🏆 {title}\n\n"
-    for entry in leaderboard:
+    per_page = 15
+    total_pages = (len(leaderboard) + per_page - 1) // per_page
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+        
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    page_data = leaderboard[start_idx:end_idx]
+    
+    text = f"🏆 {title} (Страница {page}/{total_pages})\n\n"
+    
+    from database.models import get_ambiguous_level_names
+    ambiguous_names = await get_ambiguous_level_names()
+    
+    for entry in page_data:
         p = entry['player']
         loc_str = "Неизвестно" if p['location'] == "-" else p['location']
         text += f"{entry['rank']}. {p['nickname']} | {loc_str} | Ср. балл: {entry['score']:.2f}\n"
@@ -85,9 +107,6 @@ async def send_leaderboard(message: Message, leaderboard: list, title: str):
         progresses = [r for r in records if not (r['progress_start'] == 0 and r['progress_end'] == 100)]
         progresses = filter_best_progresses(progresses, 'level_id')
         progresses.sort(key=lambda x: (x['progress_start'] != 0, x['progress_end']))
-        
-        from database.models import get_ambiguous_level_names
-        ambiguous_names = await get_ambiguous_level_names()
         
         if top_5:
             hardest_texts = []
@@ -115,17 +134,49 @@ async def send_leaderboard(message: Message, leaderboard: list, title: str):
             text += f"   📈 Достойные прогрессы: {', '.join(prog_texts)}\n"
         text += "\n"
         
-    await message.answer(text)
+    builder = InlineKeyboardBuilder()
+    if page > 1:
+        builder.button(text="⬅️ Назад", callback_data=TopCallback(page=page-1, filter_type=filter_type[:50]).pack())
+    if page < total_pages:
+        builder.button(text="Вперед ➡️", callback_data=TopCallback(page=page+1, filter_type=filter_type[:50]).pack())
+    builder.adjust(2)
+    
+    markup = builder.as_markup() if total_pages > 1 else None
+    
+    if hasattr(message_or_query, 'message'):
+        await message_or_query.message.edit_text(text, reply_markup=markup)
+    else:
+        await message_or_query.answer(text, reply_markup=markup)
+
+@router.callback_query(TopCallback.filter())
+async def cb_top(query: CallbackQuery, callback_data: TopCallback):
+    page = callback_data.page
+    ftype = callback_data.filter_type
+    
+    if ftype == "all":
+        lb = await get_leaderboard()
+        title = "Общий топ"
+    elif ftype == "mob":
+        lb = await get_leaderboard(filter_platform="mob")
+        title = "Топ мобильных игроков"
+    elif ftype.startswith("loc:"):
+        loc = ftype[4:]
+        lb = await get_leaderboard(filter_location=loc)
+        title = f"Топ по городу: {loc}"
+    else:
+        return
+        
+    await send_leaderboard(query, lb, title, ftype, page)
 
 @router.message(Command("top"))
 async def cmd_top(message: Message):
     lb = await get_leaderboard()
-    await send_leaderboard(message, lb, "Общий топ")
+    await send_leaderboard(message, lb, "Общий топ", "all")
 
 @router.message(Command("top_mobile"))
 async def cmd_top_mobile(message: Message):
     lb = await get_leaderboard(filter_platform="mob")
-    await send_leaderboard(message, lb, "Топ мобильных игроков")
+    await send_leaderboard(message, lb, "Топ мобильных игроков", "mob")
 
 @router.message(Command("top_location"))
 async def cmd_top_location(message: Message):
@@ -140,7 +191,7 @@ async def cmd_top_location(message: Message):
         return
         
     lb = await get_leaderboard(filter_location=location)
-    await send_leaderboard(message, lb, f"Топ игроков ({location})")
+    await send_leaderboard(message, lb, f"Топ по городу: {location}", f"loc:{location}")
 
 @router.message(Command("player", "profile"))
 async def cmd_profile(message: Message):
