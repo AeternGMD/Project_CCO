@@ -66,6 +66,8 @@ async def cmd_toggle_notifications(message: Message):
 async def cmd_restart(message: Message):
     import sys
     import os
+    from database.models import set_setting
+    await set_setting("restart_notify", str(message.from_user.id))
     await message.answer("🔄 Бот перезапускается...")
     args = [sys.executable] + sys.argv
     args = [f'"{a}"' if ' ' in a else a for a in args]
@@ -87,6 +89,8 @@ async def cmd_update(message: Message):
         if "Already up to date." in out_text or "Уже обновлено." in out_text:
             await message.answer("✅ Бот уже обновлен до последней версии.")
         else:
+            from database.models import set_setting
+            await set_setting("restart_notify", str(message.from_user.id))
             await message.answer(f"✅ Обновление загружено:\n<pre>{out_text}</pre>\n\n🔄 Перезапускаюсь...")
             args = [sys.executable] + sys.argv
             args = [f'"{a}"' if ' ' in a else a for a in args]

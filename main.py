@@ -24,6 +24,15 @@ async def main():
     dp.include_router(public_router)
     dp.include_router(inline_router)
     
+    from database.models import get_setting, set_setting
+    notify_id = await get_setting("restart_notify")
+    if notify_id:
+        try:
+            await bot.send_message(chat_id=int(notify_id), text="✅ Бот успешно перезапущен и готов к работе!")
+        except Exception as e:
+            logger.error(f"Failed to send restart notification: {e}")
+        await set_setting("restart_notify", "")
+        
     logger.info("Starting bot polling...")
     try:
         await dp.start_polling(bot)
