@@ -1,0 +1,21 @@
+[Unit]
+Description=GD Leaderboard Telegram Bot
+After=network.target
+
+[Service]
+# CHANGE THESE PATHS TO WHERE YOUR BOT IS LOCATED
+WorkingDirectory=/opt/gd_bot
+ExecStart=/opt/gd_bot/venv/bin/python main.py
+
+# Optional: run as a specific user instead of root
+# User=botuser
+# Group=botuser
+
+Restart=always
+RestartSec=10
+
+# Environment variables can also be loaded from the .env file
+# EnvironmentFile=/opt/gd_bot/.env
+
+[Install]
+WantedBy=multi-user.target

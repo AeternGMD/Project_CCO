@@ -10,6 +10,11 @@ _global_conn = None
 async def init_connection():
     global _global_conn
     if _global_conn is None:
+        import os
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            
         _global_conn = await aiosqlite.connect(DB_PATH)
         _global_conn.row_factory = aiosqlite.Row
 
