@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   bot:
-    build: .
+    build:
+      context: .
+      network: host
     container_name: gd_leaderboard_bot
     restart: unless-stopped
     env_file:
