@@ -4,6 +4,7 @@ services:
       context: .
       network: host
     container_name: gd_leaderboard_bot
+    network_mode: "host"
     restart: unless-stopped
     env_file:
       - .env
