@@ -41,7 +41,7 @@ async def cmd_add_player(message: Message):
     if len(args) != 6:
         await message.answer(
             "❌ Ошибка формата!\n"
-            "Использование: /add_player [Ник] [Demonlist_ID] [Платформа] [Город] [API: 1/0]\n\n"
+            "Использование: /add_player [\"Ник\"] [Demonlist_ID_или_-] [pc/mobile] [\"Город\"] [1_или_0]\n\n"
             "⚠️ Важно: Если ник или город содержит пробелы, ОБЯЗАТЕЛЬНО используйте двойные кавычки!\n"
             "Пример: /add_player \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1"
         )
@@ -134,8 +134,8 @@ async def cmd_edit_player(message: Message):
         
     if len(args) != 4:
         await message.answer(
-            "❌ Использование: /edit_player [Ник] [Поле] [Новое_Значение]\n"
-            "Поля: platform, location, api_sync, contacts, demonlist_id\n\n"
+            "❌ Использование: /edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]\n"
+            "Поля: platform, location, api_sync, contacts, demonlist_id, nickname\n\n"
             "⚠️ Важно: Если значение содержит пробелы, ОБЯЗАТЕЛЬНО используйте кавычки!\n"
             "Пример: /edit_player Kwikzy location \"Нижний Тагил\""
         )
@@ -150,7 +150,7 @@ async def cmd_edit_player(message: Message):
         await message.answer("❌ Игрок не найден.")
         return
         
-    valid_fields = ['platform', 'location', 'api_sync', 'contacts', 'demonlist_id']
+    valid_fields = ['platform', 'location', 'api_sync', 'contacts', 'demonlist_id', 'nickname']
     if field not in valid_fields:
         await message.answer(f"❌ Неверное поле. Допустимые: {', '.join(valid_fields)}")
         return
@@ -160,6 +160,11 @@ async def cmd_edit_player(message: Message):
         update_data[field] = value.lower() in ['yes', '1', 'true']
     elif field == 'demonlist_id':
         update_data[field] = extract_demonlist_id(value)
+    elif field == 'nickname':
+        if await get_player_by_nick(value):
+            await message.answer(f"❌ Игрок с ником {value} уже существует.")
+            return
+        update_data[field] = value
     else:
         update_data[field] = value
         
@@ -182,7 +187,11 @@ async def cmd_record(message: Message):
         args = message.text.split()
         
     if len(args) < 3:
-        await message.answer("Использование: /record [\"Ник\"] [\"Название_или_ID\"] [Прогресс]\nПример: /record \"f f i z z\" \"Bloodlust\" 100")
+        await message.answer("Использование: /record [\"Ник\"] [\"Название_или_ID\"] [Прогресс]\n"
+                             "Прогресс не обязателен для 100%.\n"
+                             "Примеры:\n"
+                             "/record \"f f i z z\" \"Bloodlust\" 100\n"
+                             "/record Player1 Tidal")
         return
         
     nick = args[1]
@@ -193,7 +202,8 @@ async def cmd_record(message: Message):
     try:
         progress_start, progress_end = parse_progress(progress_str)
     except ValueError:
-        await message.answer("❌ Ошибка: неверный формат прогресса. Если ник или уровень содержит пробелы, оберните их в кавычки!\nПример: /record \"f f i z z\" \"Bloodlust\" 100")
+        await message.answer("❌ Ошибка: неверный формат прогресса. Если ник или уровень содержит пробелы, оберните их в кавычки!\n"
+                             "Пример: /record \"f f i z z\" \"Bloodlust\" 100")
         return
         
     player = await get_player_by_nick(nick)
@@ -282,12 +292,14 @@ async def process_record_action(message: Message, action: str, player_id: int, l
     old_leaderboard = await get_leaderboard()
     
     if action == "add":
+        # Check eligibility before adding record
+        is_eligible = await calculate_progress_eligibility(player_id, level['position'])
+        
         # Check progress rules
         if progress_end < 100:
             if (progress_end - progress_start) < 40:
                 await message.answer("❌ Прогресс должен покрывать минимум 40% уровня.")
                 return
-            is_eligible = await calculate_progress_eligibility(player_id, level['position'])
             if not is_eligible:
                 await message.answer("❌ Этот уровень не войдет в топ-5 хардестов игрока. Прогресс не записан.")
                 return
@@ -309,7 +321,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
             await send_record_notification(
                 bot, player['nickname'], player['platform'], level['level_name'], 
                 level['position'], old_leaderboard, new_leaderboard, record_deleted=False,
-                progress_start=progress_start, progress_end=progress_end
+                progress_start=progress_start, progress_end=progress_end, is_eligible=is_eligible
             )
         
     elif action == "del":

@@ -12,7 +12,8 @@ async def send_record_notification(
     new_leaderboard: List[Dict[str, Any]],
     record_deleted: bool = False,
     progress_start: int = 0,
-    progress_end: int = 100
+    progress_end: int = 100,
+    is_eligible: bool = True
 ):
     """
     Constructs and sends a notification to the TG channel about a record change.
@@ -25,6 +26,10 @@ async def send_record_notification(
     # Do not notify on progress, only 100% completions
     if progress_end < 100 or progress_start > 0:
         return
+        
+    # Do not notify if level does not enter top 5 hardest
+    if not is_eligible:
+        return
     
     # Find player in old and new leaderboards
     old_entry = next((item for item in old_leaderboard if item['player']['nickname'] == player_nickname), None)
@@ -32,10 +37,6 @@ async def send_record_notification(
     
     old_place = old_entry['rank'] if old_entry else None
     new_place = new_entry['rank'] if new_entry else None
-    
-    # Only notify if position actually changed
-    if old_place == new_place:
-        return
     
     # Base text
     action_text = "прошёл уровень"
@@ -46,10 +47,13 @@ async def send_record_notification(
     old_place_str = old_place if old_place is not None else "None"
     new_place_str = new_place if new_place is not None else "None"
     
-    text += f"Перемещение: {old_place_str} ➡️ {new_place_str}.\n"
+    if old_place == new_place:
+        text += f"Перемещение: Позиция в топе не изменилась (Топ-{new_place_str}).\n"
+    else:
+        text += f"Перемещение: {old_place_str} ➡️ {new_place_str}.\n"
     
     # Show neighbors only if the player's place changed and they are still in the top
-    if new_place is not None:
+    if new_place is not None and old_place != new_place:
             neighbors_text = []
             
             above_entry = next((item for item in new_leaderboard if item['rank'] == new_place - 1), None)
