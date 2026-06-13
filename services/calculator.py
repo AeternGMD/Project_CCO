@@ -27,15 +27,26 @@ async def calculate_player_score(player_id: int) -> Optional[float]:
         
     return sum(top_5_positions) / 5.0
 
-async def calculate_hypothetical_score(player_id: int, new_level_positions: List[int]) -> Optional[float]:
+async def calculate_hypothetical_score(player_id: int, new_level_ids: List[int]) -> Optional[float]:
     """
-    Calculates score if the player were to beat new_level_positions.
+    Calculates score if the player were to beat new_level_ids.
+    Ignores duplicates and levels the player has already beaten.
     """
+    from database.models import get_level_by_id
     records = await get_player_records(player_id)
     total_levels = await get_total_levels()
     
+    # Extract existing 100% completions
     completions = [r['position'] for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
-    completions.extend(new_level_positions)
+    completed_level_ids = {r['level_id'] for r in records if r['progress_start'] == 0 and r['progress_end'] == 100}
+    
+    # Process new levels
+    unique_new_ids = set(new_level_ids)
+    for lid in unique_new_ids:
+        if lid not in completed_level_ids:
+            lvl = await get_level_by_id(lid)
+            if lvl:
+                completions.append(lvl['position'])
     
     if not completions:
         return None

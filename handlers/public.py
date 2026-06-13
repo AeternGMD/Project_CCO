@@ -392,7 +392,7 @@ async def cmd_try(message: Message, state: FSMContext):
     level_names = [name.strip() for name in levels_str.split(",")]
     await process_try_query(message, state, player, level_names, [], [])
 
-async def process_try_query(message_or_query, state: FSMContext, player, pending_names: list, new_level_positions: list, found_levels: list):
+async def process_try_query(message_or_query, state: FSMContext, player, pending_names: list, new_level_ids: list, found_levels: list):
     from database.models import get_ambiguous_level_names
     ambiguous_names = await get_ambiguous_level_names()
     
@@ -407,7 +407,7 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
                 name_disp = lvl['level_name']
                 if name_disp.lower() in ambiguous_names:
                     name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
-                new_level_positions.append(lvl['position'])
+                new_level_ids.append(lvl['level_id'])
                 found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
             continue
             
@@ -426,7 +426,7 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
             await state.update_data(
                 player_id=player['id'],
                 pending_names=pending_names,
-                new_level_positions=new_level_positions,
+                new_level_ids=new_level_ids,
                 found_levels=found_levels
             )
             
@@ -448,12 +448,12 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         name_disp = lvl['level_name']
         if name_disp.lower() in ambiguous_names:
             name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
-        new_level_positions.append(lvl['position'])
+        new_level_ids.append(lvl['level_id'])
         found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
         
     await state.clear()
     
-    if not new_level_positions:
+    if not new_level_ids:
         text = "❌ Вы не указали ни одного уровня."
         if hasattr(message_or_query, 'message'):
             await message_or_query.message.edit_text(text)
@@ -463,7 +463,7 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         
     from services.calculator import calculate_hypothetical_score, get_leaderboard
     
-    new_score = await calculate_hypothetical_score(player['id'], new_level_positions)
+    new_score = await calculate_hypothetical_score(player['id'], new_level_ids)
     lb = await get_leaderboard()
     
     current_entry = next((e for e in lb if e['player']['id'] == player['id']), None)
@@ -516,13 +516,19 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
     if name_disp.lower() in ambiguous_names:
         name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
         
-    new_level_positions = data['new_level_positions']
-    new_level_positions.append(lvl['position'])
+    new_level_ids = data['new_level_ids']
+    new_level_ids.append(lvl['level_id'])
     
     found_levels = data['found_levels']
     found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
     
-    await process_try_query(query, state, player, data['pending_names'], new_level_positions, found_levels)
+    # Delete the keyboard to prevent double clicks
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    
+    await process_try_query(query, state, player, data['pending_names'], new_level_ids, found_levels)
 
 @router.message()
 async def unknown_message(message: Message):
