@@ -319,6 +319,44 @@ async def process_record_action(message: Message, action: str, player_id: int, l
         else:
             await message.answer("❌ У этого игрока нет рекордов на данном уровне.")
 
+@router.message(Command("link", ignore_case=True))
+async def cmd_link(message: Message):
+    args = message.text.split(maxsplit=2)
+    if len(args) < 3:
+        await message.answer("Использование: /link [Ник] [Telegram ID]")
+        return
+    nick = args[1]
+    if not args[2].isdigit():
+        await message.answer("❌ Telegram ID должен быть числом.")
+        return
+    tg_id = int(args[2])
+    
+    player = await get_player_by_nick(nick)
+    if not player:
+        await message.answer("❌ Игрок не найден.")
+        return
+        
+    from database.models import link_player_tg
+    await link_player_tg(player['id'], tg_id)
+    await message.answer(f"✅ Telegram аккаунт ({tg_id}) успешно привязан к игроку {player['nickname']}.")
+
+@router.message(Command("unlink", ignore_case=True))
+async def cmd_unlink(message: Message):
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Использование: /unlink [Ник]")
+        return
+    nick = args[1]
+    
+    player = await get_player_by_nick(nick)
+    if not player:
+        await message.answer("❌ Игрок не найден.")
+        return
+        
+    from database.models import unlink_player_tg
+    await unlink_player_tg(player['id'])
+    await message.answer(f"✅ Telegram аккаунт отвязан от игрока {player['nickname']}.")
+
 @router.message(Command("info_update", "iu", ignore_case=True))
 async def cmd_info_update(message: Message):
     msg = await message.answer("🔄 Загрузка данных с сайта...")

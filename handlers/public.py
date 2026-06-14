@@ -68,6 +68,8 @@ async def cmd_start(message: Message):
             "/del_player (или /dp) - Удалить игрока\n"
             "/record (или /r) - Добавить рекорд\n"
             "/del_record (или /dr) - Удалить рекорд\n"
+            "/link - Привязать Telegram ID\n"
+            "/unlink - Отвязать Telegram ID\n"
             "/ban (или /b) - Выдать бан\n"
             "/unban (или /ub) - Снять бан\n"
             "/info_update (или /iu) - Синхронизировать с Demonlist\n"
@@ -263,15 +265,20 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
 @router.message(Command("player", "profile", "p", ignore_case=True))
 async def cmd_profile(message: Message):
     args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Использование: /profile [Ник]")
-        return
-        
-    nick = args[1]
-    player = await get_player_by_nick(nick)
-    if not player:
-        await message.answer("❌ Игрок не найден.")
-        return
+    
+    player = None
+    if len(args) < 2 or args[1].lower() == "me":
+        from database.models import get_player_by_tg
+        player = await get_player_by_tg(message.from_user.id)
+        if not player:
+            await message.answer("❌ Ваш Telegram аккаунт не привязан к профилю. Укажите ник: /profile [Ник]")
+            return
+    else:
+        nick = args[1]
+        player = await get_player_by_nick(nick)
+        if not player:
+            await message.answer("❌ Игрок не найден.")
+            return
         
     lb = await get_leaderboard()
     entry = next((item for item in lb if item['player']['id'] == player['id']), None)
@@ -422,17 +429,31 @@ async def cmd_try(message: Message, state: FSMContext):
     except ValueError:
         args = message.text.split()
         
-    if len(args) < 3:
-        await message.answer("Использование: /try [\"Ник\"] [\"Уровень1, Уровень2...\"]\nНапример: /try \"f f i z z\" \"Bloodbath, Tartarus\"")
+    if len(args) == 2:
+        nick = "me"
+        levels_str = args[1]
+    elif len(args) >= 3:
+        if args[1].lower() == "me":
+            nick = "me"
+            levels_str = " ".join(args[2:])
+        else:
+            nick = args[1]
+            levels_str = " ".join(args[2:])
+    else:
+        await message.answer("Использование: /try [Ник_или_me] [\"Уровень1, Уровень2...\"]\nНапример: /try \"f f i z z\" \"Bloodbath, Tartarus\"\nИли просто: /try \"Bloodbath\" (если профиль привязан)")
         return
         
-    nick = args[1]
-    levels_str = " ".join(args[2:])
-    
-    player = await get_player_by_nick(nick)
-    if not player:
-        await message.answer("❌ Игрок не найден.")
-        return
+    if nick == "me":
+        from database.models import get_player_by_tg
+        player = await get_player_by_tg(message.from_user.id)
+        if not player:
+            await message.answer("❌ Ваш Telegram аккаунт не привязан к профилю. Обратитесь к администратору.")
+            return
+    else:
+        player = await get_player_by_nick(nick)
+        if not player:
+            await message.answer("❌ Игрок не найден.")
+            return
         
     records = await get_player_records(player['id'])
     completed_level_ids = {r['level_id'] for r in records if r['progress_start'] == 0 and r['progress_end'] == 100}

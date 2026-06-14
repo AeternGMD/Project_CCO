@@ -99,4 +99,10 @@ async def init_db():
         except aiosqlite.OperationalError:
             pass
             
+        try:
+            await conn.execute("ALTER TABLE players ADD COLUMN tg_id INTEGER DEFAULT NULL")
+            await conn.commit()
+        except aiosqlite.OperationalError:
+            pass
+            
     logger.info("Database initialized successfully.")

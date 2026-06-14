@@ -57,6 +57,21 @@ async def get_player_by_id(player_id: int) -> Optional[aiosqlite.Row]:
         cursor = await conn.execute("SELECT * FROM players WHERE id = ?", (player_id,))
         return await cursor.fetchone()
 
+async def get_player_by_tg(tg_id: int) -> Optional[aiosqlite.Row]:
+    async with get_db_connection() as conn:
+        cursor = await conn.execute("SELECT * FROM players WHERE tg_id = ?", (tg_id,))
+        return await cursor.fetchone()
+
+async def link_player_tg(player_id: int, tg_id: int):
+    async with get_db_connection() as conn:
+        await conn.execute("UPDATE players SET tg_id = ? WHERE id = ?", (tg_id, player_id))
+        await conn.commit()
+
+async def unlink_player_tg(player_id: int):
+    async with get_db_connection() as conn:
+        await conn.execute("UPDATE players SET tg_id = NULL WHERE id = ?", (player_id,))
+        await conn.commit()
+
 async def get_all_players() -> List[aiosqlite.Row]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players")
