@@ -275,6 +275,9 @@ async def process_record_action(message: Message, action: str, player_id: int, l
     old_leaderboard = await get_leaderboard()
     
     if action == "add":
+        from services.calculator import calculate_progress_eligibility
+        is_eligible = await calculate_progress_eligibility(player_id, level['position'])
+        
         # Check progress rules
         if progress_end < 100:
             if (progress_end - progress_start) < 40:
@@ -299,7 +302,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
             await send_record_notification(
                 bot, player['nickname'], player['platform'], level['level_name'], 
                 level['position'], old_leaderboard, new_leaderboard, record_deleted=False,
-                progress_start=progress_start, progress_end=progress_end
+                progress_start=progress_start, progress_end=progress_end, is_eligible=is_eligible
             )
         
     elif action == "del":
