@@ -53,41 +53,41 @@ async def cmd_start(message: Message):
         cmd = args[1].lower().strip('/')
         
         public_help = {
-            ('try',): "ℹ️ **Справка по команде /try**\n\nСимулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n📌 **Как использовать:**\n• Для своего привязанного аккаунта:\n  `/try me Bloodbath, Tartarus`\n  *(Или: `/try \"Bloodbath, Tartarus\"`)*\n\n• Для другого игрока:\n  `/try Kwikzy Bloodbath, Tartarus`\n  *(Если ник с пробелами: `/try \"Mr Spaced\" Bloodbath`)*",
-            ('profile', 'p'): "ℹ️ **Справка по команде /profile**\n\nПоказывает статистику, баллы и прохождения игрока.\n\n📌 **Как использовать:**\n• Если ваш аккаунт привязан:\n  `/p` или `/p me`\n\n• Для другого игрока:\n  `/p Kwikzy` или `/p \"Mr Spaced\"`",
-            ('lvlp', 'lp'): "ℹ️ **Справка по команде /lvlp**\n\nПоказывает уровни на заданных местах.\n\n📌 **Как использовать:**\n  `/lvlp 1` — покажет Топ-1 уровень\n  `/lvlp 1-10` — покажет уровни с 1 по 10 место (макс. 30 за раз).",
-            ('top', 't'): "ℹ️ **Справка по команде /top**\n\nВыводит общий топ игроков.\n\n📌 **Использование:**\n  `/top`",
-            ('top_mobile', 'tm'): "ℹ️ **Справка по команде /top_mobile**\n\nВыводит топ игроков, играющих с телефона.\n\n📌 **Использование:**\n  `/top_mobile`",
-            ('top_location', 'tl'): "ℹ️ **Справка по команде /top_location**\n\nВыводит топ игроков из конкретного города.\n\n📌 **Использование:**\n  `/top_location [Город]`\n  Пример: `/tl Москва`",
-            ('level', 'lvl'): "ℹ️ **Справка по команде /level**\n\nПоказывает информацию об уровне (позиция, создатель, викторы).\n\n📌 **Использование:**\n  `/level [Название]`\n  Пример: `/lvl Tartarus`"
+            ('try',): "ℹ️ <b>Справка по команде /try</b>\n\nСимулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n📌 <b>Как использовать:</b>\n• Для своего привязанного аккаунта:\n  <code>/try me Bloodbath, Tartarus</code>\n  <i>(Или: <code>/try \"Bloodbath, Tartarus\"</code>)</i>\n\n• Для другого игрока:\n  <code>/try Kwikzy Bloodbath, Tartarus</code>\n  <i>(Если ник с пробелами: <code>/try \"Mr Spaced\" Bloodbath</code>)</i>",
+            ('profile', 'p'): "ℹ️ <b>Справка по команде /profile</b>\n\nПоказывает статистику, баллы и прохождения игрока.\n\n📌 <b>Как использовать:</b>\n• Если ваш аккаунт привязан:\n  <code>/p</code> или <code>/p me</code>\n\n• Для другого игрока:\n  <code>/p Kwikzy</code> или <code>/p \"Mr Spaced\"</code>",
+            ('lvlp', 'lp'): "ℹ️ <b>Справка по команде /lvlp</b>\n\nПоказывает уровни на заданных местах.\n\n📌 <b>Как использовать:</b>\n  <code>/lvlp 1</code> — покажет Топ-1 уровень\n  <code>/lvlp 1-10</code> — покажет уровни с 1 по 10 место (макс. 30 за раз).",
+            ('top', 't'): "ℹ️ <b>Справка по команде /top</b>\n\nВыводит общий топ игроков.\n\n📌 <b>Использование:</b>\n  <code>/top</code>",
+            ('top_mobile', 'tm'): "ℹ️ <b>Справка по команде /top_mobile</b>\n\nВыводит топ игроков, играющих с телефона.\n\n📌 <b>Использование:</b>\n  <code>/top_mobile</code>",
+            ('top_location', 'tl'): "ℹ️ <b>Справка по команде /top_location</b>\n\nВыводит топ игроков из конкретного города.\n\n📌 <b>Использование:</b>\n  <code>/top_location [Город]</code>\n  Пример: <code>/tl Москва</code>",
+            ('level', 'lvl'): "ℹ️ <b>Справка по команде /level</b>\n\nПоказывает информацию об уровне (позиция, создатель, викторы).\n\n📌 <b>Использование:</b>\n  <code>/level [Название]</code>\n  Пример: <code>/lvl Tartarus</code>"
         }
         
         admin_help = {
-            ('record', 'r'): "ℹ️ **Справка по команде /record (Админ)**\n\nВносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через `|`.\n\n📌 **Использование:**\n  `/r Kwikzy Tartarus 100`\n  `/r Kwikzy Tartarus 60 | 40-100`\n  `/r \"Mr Spaced\" \"Tidal Wave\" 100`",
-            ('add_player', 'ap'): "ℹ️ **Справка по команде /add_player (Админ)**\n\nДобавляет нового игрока в базу.\n\n📌 **Использование:**\n  `/add_player [\"Ник\"] [ID_Демонлиста_или_-] [pc/mobile] [\"Город\"] [1_или_0]`\n  Пример: `/ap \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1`",
-            ('edit_player', 'ep'): "ℹ️ **Справка по команде /edit_player (Админ)**\n\nРедактирует поля игрока (platform, location, api_sync, contacts, demonlist_id, nickname).\n\n📌 **Использование:**\n  `/edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]`\n  Пример: `/ep Kwikzy location \"Нижний Тагил\"`",
-            ('del_player', 'dp'): "ℹ️ **Справка по команде /del_player (Админ)**\n\nПолностью удаляет игрока и все его рекорды.\n\n📌 **Использование:**\n  `/del_player [Ник]`",
-            ('del_record', 'dr'): "ℹ️ **Справка по команде /del_record (Админ)**\n\nУдаляет рекорды игрока на конкретном уровне.\n\n📌 **Использование:**\n  `/del_record [Ник] [Уровень]`",
-            ('link',): "ℹ️ **Справка по команде /link (Админ)**\n\nПривязывает Telegram ID к профилю игрока.\n\n📌 **Использование:**\n  `/link [Ник] [Telegram ID]`",
-            ('unlink',): "ℹ️ **Справка по команде /unlink (Админ)**\n\nОтвязывает Telegram аккаунт от профиля.\n\n📌 **Использование:**\n  `/unlink [Ник]`",
-            ('ban', 'b'): "ℹ️ **Справка по команде /ban (Админ)**\n\nБанит пользователя в боте по его Telegram ID.\n\n📌 **Использование:**\n  `/ban [Telegram ID] [Дней] [Причина]`\n  Пример: `/ban 123456789 30 Спам`",
-            ('unban', 'ub'): "ℹ️ **Справка по команде /unban (Админ)**\n\nСнимает бан с пользователя.\n\n📌 **Использование:**\n  `/unban [Telegram ID]`",
-            ('info_update', 'iu'): "ℹ️ **Справка по команде /info_update (Админ)**\n\nСинхронизирует баллы и уровни с официальным сайтом Demonlist.\n\n📌 **Использование:**\n  `/info_update`",
-            ('backup', 'bkp'): "ℹ️ **Справка по команде /backup (Админ)**\n\nСкачивает текущую базу данных `database.db` в чат.\n\n📌 **Использование:**\n  `/backup`",
-            ('restore', 'rst'): "ℹ️ **Справка по команде /restore (Админ)**\n\nВосстанавливает базу данных. Используется ответом (Reply) на сообщение с файлом `database.db`.\n\n📌 **Использование:**\n  `/restore`",
-            ('toggle_notifications', 'tn'): "ℹ️ **Справка по команде /toggle_notifications (Админ)**\n\nВключает или выключает рассылку в канал о новых прохождениях.\n\n📌 **Использование:**\n  `/toggle_notifications`",
-            ('restart', 'res'): "ℹ️ **Справка по команде /restart (Админ)**\n\nПерезапускает бота.\n\n📌 **Использование:**\n  `/restart`"
+            ('record', 'r'): "ℹ️ <b>Справка по команде /record (Админ)</b>\n\nВносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через <code>|</code>.\n\n📌 <b>Использование:</b>\n  <code>/r Kwikzy Tartarus 100</code>\n  <code>/r Kwikzy Tartarus 60 | 40-100</code>\n  <code>/r \"Mr Spaced\" \"Tidal Wave\" 100</code>",
+            ('add_player', 'ap'): "ℹ️ <b>Справка по команде /add_player (Админ)</b>\n\nДобавляет нового игрока в базу.\n\n📌 <b>Использование:</b>\n  <code>/add_player [\"Ник\"] [ID_Демонлиста_или_-] [pc/mobile] [\"Город\"] [1_или_0]</code>\n  Пример: <code>/ap \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1</code>",
+            ('edit_player', 'ep'): "ℹ️ <b>Справка по команде /edit_player (Админ)</b>\n\nРедактирует поля игрока (platform, location, api_sync, contacts, demonlist_id, nickname).\n\n📌 <b>Использование:</b>\n  <code>/edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]</code>\n  Пример: <code>/ep Kwikzy location \"Нижний Тагил\"</code>",
+            ('del_player', 'dp'): "ℹ️ <b>Справка по команде /del_player (Админ)</b>\n\nПолностью удаляет игрока и все его рекорды.\n\n📌 <b>Использование:</b>\n  <code>/del_player [Ник]</code>",
+            ('del_record', 'dr'): "ℹ️ <b>Справка по команде /del_record (Админ)</b>\n\nУдаляет рекорды игрока на конкретном уровне.\n\n📌 <b>Использование:</b>\n  <code>/del_record [Ник] [Уровень]</code>",
+            ('link',): "ℹ️ <b>Справка по команде /link (Админ)</b>\n\nПривязывает Telegram ID к профилю игрока.\n\n📌 <b>Использование:</b>\n  <code>/link [Ник] [Telegram ID]</code>",
+            ('unlink',): "ℹ️ <b>Справка по команде /unlink (Админ)</b>\n\nОтвязывает Telegram аккаунт от профиля.\n\n📌 <b>Использование:</b>\n  <code>/unlink [Ник]</code>",
+            ('ban', 'b'): "ℹ️ <b>Справка по команде /ban (Админ)</b>\n\nБанит пользователя в боте по его Telegram ID.\n\n📌 <b>Использование:</b>\n  <code>/ban [Telegram ID] [Дней] [Причина]</code>\n  Пример: <code>/ban 123456789 30 Спам</code>",
+            ('unban', 'ub'): "ℹ️ <b>Справка по команде /unban (Админ)</b>\n\nСнимает бан с пользователя.\n\n📌 <b>Использование:</b>\n  <code>/unban [Telegram ID]</code>",
+            ('info_update', 'iu'): "ℹ️ <b>Справка по команде /info_update (Админ)</b>\n\nСинхронизирует баллы и уровни с официальным сайтом Demonlist.\n\n📌 <b>Использование:</b>\n  <code>/info_update</code>",
+            ('backup', 'bkp'): "ℹ️ <b>Справка по команде /backup (Админ)</b>\n\nСкачивает текущую базу данных <code>database.db</code> в чат.\n\n📌 <b>Использование:</b>\n  <code>/backup</code>",
+            ('restore', 'rst'): "ℹ️ <b>Справка по команде /restore (Админ)</b>\n\nВосстанавливает базу данных. Используется ответом (Reply) на сообщение с файлом <code>database.db</code>.\n\n📌 <b>Использование:</b>\n  <code>/restore</code>",
+            ('toggle_notifications', 'tn'): "ℹ️ <b>Справка по команде /toggle_notifications (Админ)</b>\n\nВключает или выключает рассылку в канал о новых прохождениях.\n\n📌 <b>Использование:</b>\n  <code>/toggle_notifications</code>",
+            ('restart', 'res'): "ℹ️ <b>Справка по команде /restart (Админ)</b>\n\nПерезапускает бота.\n\n📌 <b>Использование:</b>\n  <code>/restart</code>"
         }
         
         for keys, text in public_help.items():
             if cmd in keys:
-                await message.answer(text, parse_mode="Markdown")
+                await message.answer(text, parse_mode="HTML")
                 return
                 
         if await is_admin(message.from_user.id):
             for keys, text in admin_help.items():
                 if cmd in keys:
-                    await message.answer(text, parse_mode="Markdown")
+                    await message.answer(text, parse_mode="HTML")
                     return
             await message.answer("❌ Подробной справки для этой команды пока нет (или неверное имя команды). Введите `/help` для общего списка.")
         else:
