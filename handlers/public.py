@@ -257,7 +257,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
             
     return text
 
-@router.message(Command("player", "profile"))
+@router.message(Command("player", "profile", "p"))
 async def cmd_profile(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -284,19 +284,11 @@ async def cmd_profile(message: Message):
 async def cmd_level(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /lvl [Название_или_ID]")
+        await message.answer("Использование: /lvl [Название]")
         return
         
     query = args[1]
-    levels = []
-    
-    if query.isdigit():
-        lvl = await get_level_by_id(int(query))
-        if lvl:
-            levels.append(lvl)
-            
-    if not levels:
-        levels = await get_levels_by_name(query)
+    levels = await get_levels_by_name(query)
         
     if not levels:
         await message.answer("❌ Уровень не найден в кэше.")
@@ -369,6 +361,53 @@ async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
     lvl = await get_level_by_id(callback_data.level_id)
     await render_level_info(lvl, query)
 
+@router.message(Command("lvlp"))
+async def cmd_lvlp(message: Message):
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Использование: /lvlp [Место] или /lvlp [От-До]\nНапример: /lvlp 1 или /lvlp 2-4")
+        return
+        
+    query = args[1].replace(" ", "")
+    try:
+        if "-" in query:
+            start_pos, end_pos = map(int, query.split("-"))
+        else:
+            start_pos = end_pos = int(query)
+    except ValueError:
+        await message.answer("❌ Неверный формат. Ожидается число или диапазон (например, 2-4).")
+        return
+        
+    if start_pos > end_pos or start_pos < 1:
+        await message.answer("❌ Неверный диапазон.")
+        return
+        
+    from database.models import get_levels_by_positions, get_level_victors_count
+    
+    if start_pos == end_pos:
+        levels = await get_levels_by_positions(start_pos, end_pos)
+        if not levels:
+            await message.answer("❌ Уровень на таком месте не найден.")
+            return
+        await render_level_info(levels[0], message)
+    else:
+        if (end_pos - start_pos) > 50:
+            await message.answer("❌ Диапазон слишком большой (максимум 50 уровней за раз).")
+            return
+            
+        levels = await get_levels_by_positions(start_pos, end_pos)
+        if not levels:
+            await message.answer("❌ Уровни в этом диапазоне не найдены.")
+            return
+            
+        text = f"🌋 Уровни Топ {start_pos}-{end_pos}:\n\n"
+        for lvl in levels:
+            creator_str = dict(lvl).get('creator', 'Unknown')
+            victors = await get_level_victors_count(lvl['level_id'])
+            text += f"**{lvl['position']}.** {lvl['level_name']} [{creator_str}] — Прошли: {victors}\n"
+            
+        await message.answer(text)
+
 @router.message(Command("try"))
 async def cmd_try(message: Message, state: FSMContext):
     import shlex
@@ -389,10 +428,13 @@ async def cmd_try(message: Message, state: FSMContext):
         await message.answer("❌ Игрок не найден.")
         return
         
+    records = await get_player_records(player['id'])
+    completed_level_ids = {r['level_id'] for r in records if r['progress_start'] == 0 and r['progress_end'] == 100}
+        
     level_names = [name.strip() for name in levels_str.split(",")]
-    await process_try_query(message, state, player, level_names, [], [])
+    await process_try_query(message, state, player, level_names, [], [], completed_level_ids)
 
-async def process_try_query(message_or_query, state: FSMContext, player, pending_names: list, new_level_ids: list, found_levels: list):
+async def process_try_query(message_or_query, state: FSMContext, player, pending_names: list, new_level_ids: list, found_levels: list, completed_level_ids: set):
     from database.models import get_ambiguous_level_names
     ambiguous_names = await get_ambiguous_level_names()
     
@@ -404,11 +446,12 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         if lvl_name.isdigit():
             lvl = await get_level_by_id(int(lvl_name))
             if lvl:
-                name_disp = lvl['level_name']
-                if name_disp.lower() in ambiguous_names:
-                    name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
-                new_level_ids.append(lvl['level_id'])
-                found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
+                if lvl['level_id'] not in completed_level_ids and lvl['level_id'] not in new_level_ids:
+                    name_disp = lvl['level_name']
+                    if name_disp.lower() in ambiguous_names:
+                        name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
+                    new_level_ids.append(lvl['level_id'])
+                    found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
             continue
             
         lvls = await get_levels_by_name(lvl_name)
@@ -427,7 +470,8 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
                 player_id=player['id'],
                 pending_names=pending_names,
                 new_level_ids=new_level_ids,
-                found_levels=found_levels
+                found_levels=found_levels,
+                completed_level_ids=list(completed_level_ids)
             )
             
             builder = InlineKeyboardBuilder()
@@ -445,16 +489,17 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
             return
             
         lvl = lvls[0]
-        name_disp = lvl['level_name']
-        if name_disp.lower() in ambiguous_names:
-            name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
-        new_level_ids.append(lvl['level_id'])
-        found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
+        if lvl['level_id'] not in completed_level_ids and lvl['level_id'] not in new_level_ids:
+            name_disp = lvl['level_name']
+            if name_disp.lower() in ambiguous_names:
+                name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
+            new_level_ids.append(lvl['level_id'])
+            found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
         
     await state.clear()
     
     if not new_level_ids:
-        text = "❌ Вы не указали ни одного уровня."
+        text = "❌ Все указанные уровни уже пройдены, либо вы ввели дубликаты/несуществующие названия."
         if hasattr(message_or_query, 'message'):
             await message_or_query.message.edit_text(text)
         else:
@@ -516,11 +561,13 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
     if name_disp.lower() in ambiguous_names:
         name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
         
+    completed_level_ids = set(data.get('completed_level_ids', []))
     new_level_ids = data['new_level_ids']
-    new_level_ids.append(lvl['level_id'])
-    
     found_levels = data['found_levels']
-    found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
+    
+    if lvl['level_id'] not in completed_level_ids and lvl['level_id'] not in new_level_ids:
+        new_level_ids.append(lvl['level_id'])
+        found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
     
     # Delete the keyboard to prevent double clicks
     try:
@@ -528,7 +575,7 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
     except Exception:
         pass
     
-    await process_try_query(query, state, player, data['pending_names'], new_level_ids, found_levels)
+    await process_try_query(query, state, player, data['pending_names'], new_level_ids, found_levels, completed_level_ids)
 
 @router.message()
 async def unknown_message(message: Message):
