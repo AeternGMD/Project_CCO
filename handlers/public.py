@@ -51,56 +51,48 @@ async def cmd_start(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
         cmd = args[1].lower().strip('/')
-        if cmd == 'try':
-            text = (
-                "ℹ️ **Справка по команде /try**\n\n"
-                "Симулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n"
-                "📌 **Как использовать:**\n"
-                "• Для своего привязанного аккаунта:\n"
-                "  `/try me Bloodbath, Tartarus`\n"
-                "  *(Или: `/try \"Bloodbath, Tartarus\"`)*\n\n"
-                "• Для другого игрока:\n"
-                "  `/try Kwikzy Bloodbath, Tartarus`\n"
-                "  *(Если ник с пробелами: `/try \"Mr Spaced\" Bloodbath`)*"
-            )
-            await message.answer(text, parse_mode="Markdown")
-            return
-        elif cmd in ['profile', 'p']:
-            text = (
-                "ℹ️ **Справка по команде /profile**\n\n"
-                "Показывает статистику, баллы и прохождения игрока.\n\n"
-                "📌 **Как использовать:**\n"
-                "• Если ваш аккаунт привязан:\n"
-                "  `/p` или `/p me`\n\n"
-                "• Для другого игрока:\n"
-                "  `/p Kwikzy` или `/p \"Mr Spaced\"`"
-            )
-            await message.answer(text, parse_mode="Markdown")
-            return
-        elif cmd in ['record', 'r']:
-            text = (
-                "ℹ️ **Справка по команде /record (Админ)**\n\n"
-                "Вносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через `|`.\n\n"
-                "📌 **Как использовать:**\n"
-                "  `/r Kwikzy Tartarus 100`\n"
-                "  `/r Kwikzy Tartarus 60 | 40-100`\n"
-                "  `/r \"Mr Spaced\" \"Tidal Wave\" 100`"
-            )
-            await message.answer(text, parse_mode="Markdown")
-            return
-        elif cmd in ['lvlp', 'lp']:
-            text = (
-                "ℹ️ **Справка по команде /lvlp**\n\n"
-                "Показывает уровни на заданных местах.\n\n"
-                "📌 **Как использовать:**\n"
-                "  `/lvlp 1` — покажет Топ-1 уровень\n"
-                "  `/lvlp 1-10` — покажет уровни с 1 по 10 место (макс. 30 за раз)."
-            )
-            await message.answer(text, parse_mode="Markdown")
-            return
+        
+        public_help = {
+            ('try',): "ℹ️ **Справка по команде /try**\n\nСимулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n📌 **Как использовать:**\n• Для своего привязанного аккаунта:\n  `/try me Bloodbath, Tartarus`\n  *(Или: `/try \"Bloodbath, Tartarus\"`)*\n\n• Для другого игрока:\n  `/try Kwikzy Bloodbath, Tartarus`\n  *(Если ник с пробелами: `/try \"Mr Spaced\" Bloodbath`)*",
+            ('profile', 'p'): "ℹ️ **Справка по команде /profile**\n\nПоказывает статистику, баллы и прохождения игрока.\n\n📌 **Как использовать:**\n• Если ваш аккаунт привязан:\n  `/p` или `/p me`\n\n• Для другого игрока:\n  `/p Kwikzy` или `/p \"Mr Spaced\"`",
+            ('lvlp', 'lp'): "ℹ️ **Справка по команде /lvlp**\n\nПоказывает уровни на заданных местах.\n\n📌 **Как использовать:**\n  `/lvlp 1` — покажет Топ-1 уровень\n  `/lvlp 1-10` — покажет уровни с 1 по 10 место (макс. 30 за раз).",
+            ('top', 't'): "ℹ️ **Справка по команде /top**\n\nВыводит общий топ игроков.\n\n📌 **Использование:**\n  `/top`",
+            ('top_mobile', 'tm'): "ℹ️ **Справка по команде /top_mobile**\n\nВыводит топ игроков, играющих с телефона.\n\n📌 **Использование:**\n  `/top_mobile`",
+            ('top_location', 'tl'): "ℹ️ **Справка по команде /top_location**\n\nВыводит топ игроков из конкретного города.\n\n📌 **Использование:**\n  `/top_location [Город]`\n  Пример: `/tl Москва`",
+            ('level', 'lvl'): "ℹ️ **Справка по команде /level**\n\nПоказывает информацию об уровне (позиция, создатель, викторы).\n\n📌 **Использование:**\n  `/level [Название]`\n  Пример: `/lvl Tartarus`"
+        }
+        
+        admin_help = {
+            ('record', 'r'): "ℹ️ **Справка по команде /record (Админ)**\n\nВносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через `|`.\n\n📌 **Использование:**\n  `/r Kwikzy Tartarus 100`\n  `/r Kwikzy Tartarus 60 | 40-100`\n  `/r \"Mr Spaced\" \"Tidal Wave\" 100`",
+            ('add_player', 'ap'): "ℹ️ **Справка по команде /add_player (Админ)**\n\nДобавляет нового игрока в базу.\n\n📌 **Использование:**\n  `/add_player [\"Ник\"] [ID_Демонлиста_или_-] [pc/mobile] [\"Город\"] [1_или_0]`\n  Пример: `/ap \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1`",
+            ('edit_player', 'ep'): "ℹ️ **Справка по команде /edit_player (Админ)**\n\nРедактирует поля игрока (platform, location, api_sync, contacts, demonlist_id, nickname).\n\n📌 **Использование:**\n  `/edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]`\n  Пример: `/ep Kwikzy location \"Нижний Тагил\"`",
+            ('del_player', 'dp'): "ℹ️ **Справка по команде /del_player (Админ)**\n\nПолностью удаляет игрока и все его рекорды.\n\n📌 **Использование:**\n  `/del_player [Ник]`",
+            ('del_record', 'dr'): "ℹ️ **Справка по команде /del_record (Админ)**\n\nУдаляет рекорды игрока на конкретном уровне.\n\n📌 **Использование:**\n  `/del_record [Ник] [Уровень]`",
+            ('link',): "ℹ️ **Справка по команде /link (Админ)**\n\nПривязывает Telegram ID к профилю игрока.\n\n📌 **Использование:**\n  `/link [Ник] [Telegram ID]`",
+            ('unlink',): "ℹ️ **Справка по команде /unlink (Админ)**\n\nОтвязывает Telegram аккаунт от профиля.\n\n📌 **Использование:**\n  `/unlink [Ник]`",
+            ('ban', 'b'): "ℹ️ **Справка по команде /ban (Админ)**\n\nБанит пользователя в боте по его Telegram ID.\n\n📌 **Использование:**\n  `/ban [Telegram ID] [Дней] [Причина]`\n  Пример: `/ban 123456789 30 Спам`",
+            ('unban', 'ub'): "ℹ️ **Справка по команде /unban (Админ)**\n\nСнимает бан с пользователя.\n\n📌 **Использование:**\n  `/unban [Telegram ID]`",
+            ('info_update', 'iu'): "ℹ️ **Справка по команде /info_update (Админ)**\n\nСинхронизирует баллы и уровни с официальным сайтом Demonlist.\n\n📌 **Использование:**\n  `/info_update`",
+            ('backup', 'bkp'): "ℹ️ **Справка по команде /backup (Админ)**\n\nСкачивает текущую базу данных `database.db` в чат.\n\n📌 **Использование:**\n  `/backup`",
+            ('restore', 'rst'): "ℹ️ **Справка по команде /restore (Админ)**\n\nВосстанавливает базу данных. Используется ответом (Reply) на сообщение с файлом `database.db`.\n\n📌 **Использование:**\n  `/restore`",
+            ('toggle_notifications', 'tn'): "ℹ️ **Справка по команде /toggle_notifications (Админ)**\n\nВключает или выключает рассылку в канал о новых прохождениях.\n\n📌 **Использование:**\n  `/toggle_notifications`",
+            ('restart', 'res'): "ℹ️ **Справка по команде /restart (Админ)**\n\nПерезапускает бота.\n\n📌 **Использование:**\n  `/restart`"
+        }
+        
+        for keys, text in public_help.items():
+            if cmd in keys:
+                await message.answer(text, parse_mode="Markdown")
+                return
+                
+        if await is_admin(message.from_user.id):
+            for keys, text in admin_help.items():
+                if cmd in keys:
+                    await message.answer(text, parse_mode="Markdown")
+                    return
+            await message.answer("❌ Подробной справки для этой команды пока нет (или неверное имя команды). Введите `/help` для общего списка.")
         else:
-            await message.answer("❌ Подробной справки для этой команды пока нет. Введите `/help` для общего списка.")
-            return
+            await message.answer("❌ Команда не найдена или у вас нет к ней доступа. Введите `/help` для общего списка.")
+        return
     
     text = (
         "👋 Привет! Я бот для ведения топа игроков Geometry Dash.\n\n"
