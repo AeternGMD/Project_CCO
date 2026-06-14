@@ -502,11 +502,6 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
     await state.clear()
     
     if not new_level_ids:
-        text = "❌ Все указанные уровни уже пройдены, либо вы ввели дубликаты/несуществующие названия."
-        if hasattr(message_or_query, 'message'):
-            await message_or_query.message.edit_text(text)
-        else:
-            await message_or_query.answer(text)
         return
         
     from services.calculator import calculate_hypothetical_score, get_leaderboard
