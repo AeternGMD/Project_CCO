@@ -172,21 +172,29 @@ async def cmd_record(message: Message):
     nick = args[1]
     level_query = args[2]
     
-    progress_str = args[3] if len(args) >= 4 else "100"
+    progress_str = " ".join(args[3:]) if len(args) >= 4 else "100"
     
+    progresses = []
     try:
-        progress_start, progress_end = parse_progress(progress_str)
+        for p_str in progress_str.split('|'):
+            p_str = p_str.strip()
+            if not p_str: continue
+            progresses.append(parse_progress(p_str))
     except ValueError:
         await message.answer("❌ Ошибка: неверный формат прогресса. Если ник или уровень содержит пробелы, оберните их в кавычки!\n"
-                             "Пример: /record \"f f i z z\" \"Bloodlust\" 100")
+                             "Пример: /record \"f f i z z\" \"Bloodlust\" 100 | 50-70")
         return
+        
+    if not progresses:
+        progresses.append((0, 100))
         
     player = await get_player_by_nick(nick)
     if not player:
         await message.answer("❌ Игрок не найден.")
         return
         
-    await handle_level_query(message, player['id'], level_query, "add", progress_start, progress_end)
+    for p_start, p_end in progresses:
+        await handle_level_query(message, player['id'], level_query, "add", p_start, p_end)
 
 @router.message(Command("del_record", "dr", ignore_case=True))
 async def cmd_del_record(message: Message):
@@ -291,7 +299,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
             await send_record_notification(
                 bot, player['nickname'], player['platform'], level['level_name'], 
                 level['position'], old_leaderboard, new_leaderboard, record_deleted=False,
-                progress_start=progress_start, progress_end=progress_end, is_eligible=is_eligible
+                progress_start=progress_start, progress_end=progress_end
             )
         
     elif action == "del":
