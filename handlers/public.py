@@ -56,7 +56,7 @@ async def cmd_start(message: Message):
         "/top_location (или /tl) - Топ по городу\n"
         "/profile (или /p) - Профиль игрока\n"
         "/level (или /lvl) - Информация об уровне\n"
-        "/lvlp (или /lp) - Информация по месту в топе\n"
+        "/lvlp (или /lp) - Уровни по месту (принимает диапазоны, напр. 1-10)\n"
         "/try - Симулятор прогресса\n"
     )
     
@@ -381,7 +381,10 @@ async def cmd_lvlp(message: Message):
         await message.answer("❌ Неверный формат. Ожидается число или диапазон (например, 2-4).")
         return
         
-    if start_pos > end_pos or start_pos < 1:
+    if start_pos > end_pos:
+        start_pos, end_pos = end_pos, start_pos
+        
+    if start_pos < 1:
         await message.answer("❌ Неверный диапазон.")
         return
         
@@ -543,7 +546,6 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
 async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback, state: FSMContext):
     data = await state.get_data()
     if not data:
-        await query.message.edit_text("❌ Выбор устарел. Пожалуйста, введите команду /try заново.")
         return
         
     level_id = callback_data.level_id

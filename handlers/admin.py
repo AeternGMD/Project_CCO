@@ -267,17 +267,12 @@ async def process_record_action(message: Message, action: str, player_id: int, l
     old_leaderboard = await get_leaderboard()
     
     if action == "add":
-        # Check eligibility before adding record
-        is_eligible = await calculate_progress_eligibility(player_id, level['position'])
-        
         # Check progress rules
         if progress_end < 100:
             if (progress_end - progress_start) < 40:
                 await message.answer("❌ Прогресс должен покрывать минимум 40% уровня.")
                 return
-            if not is_eligible:
-                await message.answer("❌ Этот уровень не войдет в топ-5 хардестов игрока. Прогресс не записан.")
-                return
+                
                 
         await add_record(player_id, level_id, progress_start, progress_end, "Manual")
         
