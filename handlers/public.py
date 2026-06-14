@@ -51,30 +51,30 @@ async def cmd_start(message: Message):
     text = (
         "👋 Привет! Я бот для ведения топа игроков Geometry Dash.\n\n"
         "👥 Доступные публичные команды:\n"
-        "/top - Общий топ игроков\n"
-        "/top_mobile - Топ мобильных игроков\n"
-        "/top_location - Топ по городу\n"
-        "/profile (или /player) - Профиль игрока\n"
+        "/top (или /t) - Общий топ игроков\n"
+        "/top_mobile (или /tm) - Топ мобильных игроков\n"
+        "/top_location (или /tl) - Топ по городу\n"
+        "/profile (или /p) - Профиль игрока\n"
         "/level (или /lvl) - Информация об уровне\n"
+        "/lvlp (или /lp) - Информация по месту в топе\n"
         "/try - Симулятор прогресса\n"
     )
     
     if await is_admin(message.from_user.id):
         text += (
             "\n🛡 Админские команды:\n"
-            "/add_player - Добавить игрока\n"
-            "/edit_player - Изменить профиль игрока\n"
-            "/del_player - Удалить игрока\n"
-            "/record - Добавить рекорд вручную\n"
-            "/del_record - Удалить рекорд\n"
-            "/ban - Выдать бан\n"
-            "/unban - Снять бан\n"
-            "/info_update - Синхронизировать с Demonlist\n"
-            "/backup - Скачать базу данных\n"
-            "/restore - Восстановить базу данных\n"
-            "/toggle_notifications - Управление уведомлениями\n"
-            "/update - Обновить код с GitHub\n"
-            "/restart - Перезапустить бота\n"
+            "/add_player (или /ap) - Добавить игрока\n"
+            "/edit_player (или /ep) - Изменить профиль\n"
+            "/del_player (или /dp) - Удалить игрока\n"
+            "/record (или /r) - Добавить рекорд\n"
+            "/del_record (или /dr) - Удалить рекорд\n"
+            "/ban (или /b) - Выдать бан\n"
+            "/unban (или /ub) - Снять бан\n"
+            "/info_update (или /iu) - Синхронизировать с Demonlist\n"
+            "/backup (или /bkp) - Скачать БД\n"
+            "/restore (или /rst) - Восстановить БД\n"
+            "/toggle_notifications (или /tn) - Уведомления\n"
+            "/restart (или /res) - Перезапустить бота\n"
         )
         
     if message.from_user.id == ROOT_ID:
@@ -187,17 +187,17 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
         
     await send_leaderboard(query, lb, title, ftype, page)
 
-@router.message(Command("top", ignore_case=True))
+@router.message(Command("top", "t", ignore_case=True))
 async def cmd_top(message: Message):
     lb = await get_leaderboard()
     await send_leaderboard(message, lb, "Общий топ", "all")
 
-@router.message(Command("top_mobile", ignore_case=True))
+@router.message(Command("top_mobile", "tm", ignore_case=True))
 async def cmd_top_mobile(message: Message):
     lb = await get_leaderboard(filter_platform="mob")
     await send_leaderboard(message, lb, "Топ мобильных игроков", "mob")
 
-@router.message(Command("top_location", ignore_case=True))
+@router.message(Command("top_location", "tl", ignore_case=True))
 async def cmd_top_location(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -364,7 +364,7 @@ async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
     lvl = await get_level_by_id(callback_data.level_id)
     await render_level_info(lvl, query)
 
-@router.message(Command("lvlp", ignore_case=True))
+@router.message(Command("lvlp", "lp", ignore_case=True))
 async def cmd_lvlp(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
