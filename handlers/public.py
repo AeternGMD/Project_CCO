@@ -43,7 +43,7 @@ def filter_best_progresses(progresses, group_by_key='level_id'):
 
 router = Router()
 
-@router.message(Command("start", "help"))
+@router.message(Command("start", "help", ignore_case=True))
 async def cmd_start(message: Message):
     from database.models import is_admin
     from config import ROOT_ID
@@ -187,17 +187,17 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
         
     await send_leaderboard(query, lb, title, ftype, page)
 
-@router.message(Command("top"))
+@router.message(Command("top", ignore_case=True))
 async def cmd_top(message: Message):
     lb = await get_leaderboard()
     await send_leaderboard(message, lb, "Общий топ", "all")
 
-@router.message(Command("top_mobile"))
+@router.message(Command("top_mobile", ignore_case=True))
 async def cmd_top_mobile(message: Message):
     lb = await get_leaderboard(filter_platform="mob")
     await send_leaderboard(message, lb, "Топ мобильных игроков", "mob")
 
-@router.message(Command("top_location"))
+@router.message(Command("top_location", ignore_case=True))
 async def cmd_top_location(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -260,7 +260,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
             
     return text
 
-@router.message(Command("player", "profile", "p"))
+@router.message(Command("player", "profile", "p", ignore_case=True))
 async def cmd_profile(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -283,7 +283,7 @@ async def cmd_profile(message: Message):
     text = generate_player_profile_text(player, entry, records, ambiguous_names)
     await message.answer(text)
 
-@router.message(Command("lvl", "level"))
+@router.message(Command("lvl", "level", ignore_case=True))
 async def cmd_level(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -364,7 +364,7 @@ async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
     lvl = await get_level_by_id(callback_data.level_id)
     await render_level_info(lvl, query)
 
-@router.message(Command("lvlp"))
+@router.message(Command("lvlp", ignore_case=True))
 async def cmd_lvlp(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -411,7 +411,7 @@ async def cmd_lvlp(message: Message):
             
         await message.answer(text)
 
-@router.message(Command("try"))
+@router.message(Command("try", ignore_case=True))
 async def cmd_try(message: Message, state: FSMContext):
     import shlex
     try:

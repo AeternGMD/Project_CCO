@@ -30,7 +30,7 @@ def extract_demonlist_id(val: str) -> str:
         return val.rstrip('/').split('/')[-1]
     return val
 
-@router.message(Command("add_player"))
+@router.message(Command("add_player", ignore_case=True))
 async def cmd_add_player(message: Message):
     import shlex
     try:
@@ -63,7 +63,7 @@ async def cmd_add_player(message: Message):
     await add_player(nick, demonlist_id, platform, location, api_sync)
     await message.answer(f"✅ Игрок {nick} успешно добавлен.")
 
-@router.message(Command("toggle_notifications"))
+@router.message(Command("toggle_notifications", ignore_case=True))
 async def cmd_toggle_notifications(message: Message):
     from database.models import get_setting, set_setting
     current = await get_setting("notifications_enabled", "true")
@@ -72,7 +72,7 @@ async def cmd_toggle_notifications(message: Message):
     status = "включены 🔔" if new_state == "true" else "выключены 🔕"
     await message.answer(f"Уведомления в канале теперь {status}.")
 
-@router.message(Command("restart"))
+@router.message(Command("restart", ignore_case=True))
 async def cmd_restart(message: Message):
     import sys
     import os
@@ -83,7 +83,7 @@ async def cmd_restart(message: Message):
     args = [f'"{a}"' if ' ' in a else a for a in args]
     os.execv(sys.executable, args)
 
-@router.message(Command("update"))
+@router.message(Command("update", ignore_case=True))
 async def cmd_update(message: Message):
     import asyncio
     import sys
@@ -108,7 +108,7 @@ async def cmd_update(message: Message):
     else:
         await message.answer(f"❌ Ошибка обновления:\n<pre>{err_text}</pre>")
 
-@router.message(Command("del_player"))
+@router.message(Command("del_player", ignore_case=True))
 async def cmd_del_player(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -124,7 +124,7 @@ async def cmd_del_player(message: Message):
     await delete_player(player['id'])
     await message.answer(f"✅ Игрок {nick} удален.")
 
-@router.message(Command("edit_player"))
+@router.message(Command("edit_player", ignore_case=True))
 async def cmd_edit_player(message: Message):
     import shlex
     try:
@@ -178,7 +178,7 @@ def parse_progress(prog_str: str):
         return int(start), int(end)
     return 0, int(prog_str)
 
-@router.message(Command("record"))
+@router.message(Command("record", ignore_case=True))
 async def cmd_record(message: Message):
     import shlex
     try:
@@ -213,7 +213,7 @@ async def cmd_record(message: Message):
         
     await handle_level_query(message, player['id'], level_query, "add", progress_start, progress_end)
 
-@router.message(Command("del_record"))
+@router.message(Command("del_record", ignore_case=True))
 async def cmd_del_record(message: Message):
     import shlex
     try:
@@ -335,7 +335,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
             level['position'], old_leaderboard, new_leaderboard, record_deleted=True
         )
 
-@router.message(Command("info_update"))
+@router.message(Command("info_update", ignore_case=True))
 async def cmd_info_update(message: Message):
     msg = await message.answer("🔄 Загрузка данных с сайта...")
     
@@ -365,7 +365,7 @@ async def cmd_info_update(message: Message):
             
     await msg.edit_text(f"✅ База уровней и профили игроков успешно обновлены!\nОбновлено уровней: {updated}")
 
-@router.message(Command("backup"))
+@router.message(Command("backup", ignore_case=True))
 async def cmd_backup(message: Message):
     if os.path.exists(DB_PATH):
         db_file = FSInputFile(DB_PATH)
@@ -373,7 +373,7 @@ async def cmd_backup(message: Message):
     else:
         await message.answer("❌ База данных не найдена.")
 
-@router.message(Command("restore"))
+@router.message(Command("restore", ignore_case=True))
 async def cmd_restore(message: Message, bot: Bot):
     if not message.reply_to_message or not message.reply_to_message.document:
         await message.answer("❌ Вы должны ответить на сообщение с файлом database.db.")
@@ -389,7 +389,7 @@ async def cmd_restore(message: Message, bot: Bot):
 
 # --- Управление банами ---
 
-@router.message(Command("ban"))
+@router.message(Command("ban", ignore_case=True))
 async def cmd_ban(message: Message):
     args = message.text.split(maxsplit=2)
     if len(args) < 2:
@@ -439,7 +439,7 @@ async def cmd_ban(message: Message):
     else:
         await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен навсегда.\nПричина: {reason or 'Не указана'}")
 
-@router.message(Command("unban"))
+@router.message(Command("unban", ignore_case=True))
 async def cmd_unban(message: Message):
     args = message.text.split()
     if len(args) < 2:
