@@ -107,15 +107,18 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
     
     text = f"🏆 {title} (Страница {page}/{total_pages})\n\n"
     
-    from database.models import get_ambiguous_level_names
+    from database.models import get_ambiguous_level_names, get_players_records
     ambiguous_names = await get_ambiguous_level_names()
+    
+    player_ids = [entry['player']['id'] for entry in page_data]
+    records_by_player = await get_players_records(player_ids)
     
     for entry in page_data:
         p = entry['player']
         loc_str = "Неизвестно" if p['location'] == "-" else p['location']
         text += f"{entry['rank']}. {p['nickname']} | {loc_str} | Ср. балл: {entry['score']:.2f}\n"
         
-        records = await get_player_records(p['id'])
+        records = records_by_player.get(p['id'], [])
         completions = [r for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
         completions.sort(key=lambda x: x['position'])
         top_5 = completions[:5]
@@ -382,20 +385,20 @@ async def cmd_lvlp(message: Message):
         await message.answer("❌ Неверный диапазон.")
         return
         
-    from database.models import get_levels_by_positions, get_level_victors_count
+    from database.models import get_levels_with_victors
     
     if start_pos == end_pos:
-        levels = await get_levels_by_positions(start_pos, end_pos)
+        levels = await get_levels_with_victors(start_pos, end_pos)
         if not levels:
             await message.answer("❌ Уровень на таком месте не найден.")
             return
         await render_level_info(levels[0], message)
     else:
-        if (end_pos - start_pos) > 50:
-            await message.answer("❌ Диапазон слишком большой (максимум 50 уровней за раз).")
+        if (end_pos - start_pos) > 30:
+            await message.answer("❌ Диапазон слишком большой (максимум 30 уровней за раз).")
             return
             
-        levels = await get_levels_by_positions(start_pos, end_pos)
+        levels = await get_levels_with_victors(start_pos, end_pos)
         if not levels:
             await message.answer("❌ Уровни в этом диапазоне не найдены.")
             return
@@ -403,7 +406,7 @@ async def cmd_lvlp(message: Message):
         text = f"🌋 Уровни Топ {start_pos}-{end_pos}:\n\n"
         for lvl in levels:
             creator_str = dict(lvl).get('creator', 'Unknown')
-            victors = await get_level_victors_count(lvl['level_id'])
+            victors = lvl['victors_count']
             text += f"**{lvl['position']}.** {lvl['level_name']} [{creator_str}] — Прошли: {victors}\n"
             
         await message.answer(text)

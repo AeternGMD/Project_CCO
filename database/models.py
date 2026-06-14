@@ -155,16 +155,17 @@ async def search_levels(query: str, limit: int = 10) -> List[aiosqlite.Row]:
         cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_name LIKE ? ORDER BY position ASC LIMIT ?", (f"%{query}%", limit))
         return await cursor.fetchall()
 
-async def get_levels_by_positions(start_pos: int, end_pos: int) -> List[aiosqlite.Row]:
+async def get_levels_with_victors(start_pos: int, end_pos: int) -> List[aiosqlite.Row]:
     async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT * FROM levels_cache WHERE position >= ? AND position <= ? ORDER BY position ASC", (start_pos, end_pos))
+        cursor = await conn.execute('''
+            SELECT l.*, COUNT(DISTINCT r.player_id) as victors_count
+            FROM levels_cache l
+            LEFT JOIN records r ON l.level_id = r.level_id AND r.progress_start = 0 AND r.progress_end = 100
+            WHERE l.position >= ? AND l.position <= ?
+            GROUP BY l.level_id
+            ORDER BY l.position ASC
+        ''', (start_pos, end_pos))
         return await cursor.fetchall()
-
-async def get_level_victors_count(level_id: int) -> int:
-    async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT COUNT(DISTINCT player_id) as cnt FROM records WHERE level_id = ? AND progress_start = 0 AND progress_end = 100", (level_id,))
-        row = await cursor.fetchone()
-        return row['cnt'] if row else 0
 
 # --- Record Operations ---
 
@@ -201,6 +202,24 @@ async def get_player_records(player_id: int) -> List[aiosqlite.Row]:
             WHERE r.player_id = ?
         ''', (player_id,))
         return await cursor.fetchall()
+
+async def get_players_records(player_ids: List[int]) -> Dict[int, List[aiosqlite.Row]]:
+    if not player_ids: return {}
+    placeholders = ",".join("?" for _ in player_ids)
+    async with get_db_connection() as conn:
+        cursor = await conn.execute(f'''
+            SELECT r.*, l.level_name, l.position, l.creator 
+            FROM records r
+            JOIN levels_cache l ON r.level_id = l.level_id
+            WHERE r.player_id IN ({placeholders})
+        ''', player_ids)
+        rows = await cursor.fetchall()
+        
+    from collections import defaultdict
+    result = defaultdict(list)
+    for r in rows:
+        result[r['player_id']].append(r)
+    return result
 
 async def get_record(player_id: int, level_id: int) -> Optional[aiosqlite.Row]:
     async with get_db_connection() as conn:
