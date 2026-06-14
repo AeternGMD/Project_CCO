@@ -12,8 +12,7 @@ async def send_record_notification(
     new_leaderboard: List[Dict[str, Any]],
     record_deleted: bool = False,
     progress_start: int = 0,
-    progress_end: int = 100,
-    is_eligible: bool = True
+    progress_end: int = 100
 ):
     """
     Constructs and sends a notification to the TG channel about a record change.
@@ -25,10 +24,6 @@ async def send_record_notification(
         
     # Do not notify on progress, only 100% completions
     if progress_end < 100 or progress_start > 0:
-        return
-        
-    # Do not notify if level does not enter top 5 hardest
-    if not is_eligible:
         return
     
     # Find player in old and new leaderboards
