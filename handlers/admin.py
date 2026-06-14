@@ -100,13 +100,15 @@ async def cmd_update(message: Message):
             await message.answer("✅ Бот уже обновлен до последней версии.")
         else:
             from database.models import set_setting
+            import html
             await set_setting("restart_notify", str(message.from_user.id))
-            await message.answer(f"✅ Обновление загружено:\n<pre>{out_text}</pre>\n\n🔄 Перезапускаюсь...")
+            await message.answer(f"✅ Обновление загружено:\n<pre>{html.escape(out_text)}</pre>\n\n🔄 Перезапускаюсь...", parse_mode="HTML")
             args = [sys.executable] + sys.argv
             args = [f'"{a}"' if ' ' in a else a for a in args]
             os.execv(sys.executable, args)
     else:
-        await message.answer(f"❌ Ошибка обновления:\n<pre>{err_text}</pre>")
+        import html
+        await message.answer(f"❌ Ошибка обновления:\n<pre>{html.escape(err_text)}</pre>", parse_mode="HTML")
 
 @router.message(Command("del_player", ignore_case=True))
 async def cmd_del_player(message: Message):
@@ -435,9 +437,9 @@ async def cmd_ban(message: Message):
     if banned_until:
         import datetime
         dt = datetime.datetime.fromtimestamp(banned_until).strftime('%Y-%m-%d %H:%M:%S')
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен до {dt}.\nПричина: {reason or 'Не указана'}")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен до {dt}.\nПричина: {reason or 'Не указана'}", parse_mode="HTML")
     else:
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен навсегда.\nПричина: {reason or 'Не указана'}")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен навсегда.\nПричина: {reason or 'Не указана'}", parse_mode="HTML")
 
 @router.message(Command("unban", ignore_case=True))
 async def cmd_unban(message: Message):
@@ -454,6 +456,6 @@ async def cmd_unban(message: Message):
         
     from database.models import unban_user
     if await unban_user(user_id):
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> разбанен.")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> разбанен.", parse_mode="HTML")
     else:
-        await message.answer(f"❌ Пользователь <code>{user_id}</code> не найден в списке забаненных.")
+        await message.answer(f"❌ Пользователь <code>{user_id}</code> не найден в списке забаненных.", parse_mode="HTML")

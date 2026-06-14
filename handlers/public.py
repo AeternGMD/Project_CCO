@@ -407,7 +407,7 @@ async def cmd_lvlp(message: Message):
         for lvl in levels:
             creator_str = dict(lvl).get('creator', 'Unknown')
             victors = lvl['victors_count']
-            text += f"**{lvl['position']}.** {lvl['level_name']} [{creator_str}] — Прошли: {victors}\n"
+            text += f"{lvl['position']}. {lvl['level_name']} [{creator_str}] — Прошли: {victors}\n"
             
         await message.answer(text)
 
