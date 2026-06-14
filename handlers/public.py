@@ -48,15 +48,70 @@ async def cmd_start(message: Message):
     from database.models import is_admin
     from config import ROOT_ID
     
+    args = message.text.split(maxsplit=1)
+    if len(args) > 1:
+        cmd = args[1].lower().strip('/')
+        if cmd == 'try':
+            text = (
+                "ℹ️ **Справка по команде /try**\n\n"
+                "Симулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n"
+                "📌 **Как использовать:**\n"
+                "• Для своего привязанного аккаунта:\n"
+                "  `/try me Bloodbath, Tartarus`\n"
+                "  *(Или: `/try \"Bloodbath, Tartarus\"`)*\n\n"
+                "• Для другого игрока:\n"
+                "  `/try Kwikzy Bloodbath, Tartarus`\n"
+                "  *(Если ник с пробелами: `/try \"Mr Spaced\" Bloodbath`)*"
+            )
+            await message.answer(text, parse_mode="Markdown")
+            return
+        elif cmd in ['profile', 'p']:
+            text = (
+                "ℹ️ **Справка по команде /profile**\n\n"
+                "Показывает статистику, баллы и прохождения игрока.\n\n"
+                "📌 **Как использовать:**\n"
+                "• Если ваш аккаунт привязан:\n"
+                "  `/p` или `/p me`\n\n"
+                "• Для другого игрока:\n"
+                "  `/p Kwikzy` или `/p \"Mr Spaced\"`"
+            )
+            await message.answer(text, parse_mode="Markdown")
+            return
+        elif cmd in ['record', 'r']:
+            text = (
+                "ℹ️ **Справка по команде /record (Админ)**\n\n"
+                "Вносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через `|`.\n\n"
+                "📌 **Как использовать:**\n"
+                "  `/r Kwikzy Tartarus 100`\n"
+                "  `/r Kwikzy Tartarus 60 | 40-100`\n"
+                "  `/r \"Mr Spaced\" \"Tidal Wave\" 100`"
+            )
+            await message.answer(text, parse_mode="Markdown")
+            return
+        elif cmd in ['lvlp', 'lp']:
+            text = (
+                "ℹ️ **Справка по команде /lvlp**\n\n"
+                "Показывает уровни на заданных местах.\n\n"
+                "📌 **Как использовать:**\n"
+                "  `/lvlp 1` — покажет Топ-1 уровень\n"
+                "  `/lvlp 1-10` — покажет уровни с 1 по 10 место (макс. 30 за раз)."
+            )
+            await message.answer(text, parse_mode="Markdown")
+            return
+        else:
+            await message.answer("❌ Подробной справки для этой команды пока нет. Введите `/help` для общего списка.")
+            return
+    
     text = (
         "👋 Привет! Я бот для ведения топа игроков Geometry Dash.\n\n"
+        "💡 _Совет: Напишите `/help [команда]` (например, `/help try`), чтобы узнать подробности._\n\n"
         "👥 Доступные публичные команды:\n"
         "/top (или /t) - Общий топ игроков\n"
         "/top_mobile (или /tm) - Топ мобильных игроков\n"
         "/top_location (или /tl) - Топ по городу\n"
         "/profile (или /p) - Профиль игрока\n"
         "/level (или /lvl) - Информация об уровне\n"
-        "/lvlp (или /lp) - Уровни по месту (принимает диапазоны, напр. 1-10)\n"
+        "/lvlp (или /lp) - Уровни по месту\n"
         "/try - Симулятор прогресса\n"
     )
     
