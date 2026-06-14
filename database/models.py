@@ -228,11 +228,13 @@ async def get_record(player_id: int, level_id: int) -> Optional[aiosqlite.Row]:
         ''', (player_id, level_id))
         return await cursor.fetchone()
 
-async def delete_record(player_id: int, level_id: int):
+async def delete_record(player_id: int, level_id: int) -> int:
     async with get_db_connection() as conn:
-        await conn.execute("DELETE FROM records WHERE player_id = ? AND level_id = ?", (player_id, level_id))
+        cursor = await conn.execute("DELETE FROM records WHERE player_id = ? AND level_id = ?", (player_id, level_id))
         await conn.commit()
+        rowcount = cursor.rowcount
     mark_leaderboard_dirty()
+    return rowcount
 
 async def update_record_status(record_id: int, status: str):
     async with get_db_connection() as conn:

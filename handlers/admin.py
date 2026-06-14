@@ -306,15 +306,18 @@ async def process_record_action(message: Message, action: str, player_id: int, l
             )
         
     elif action == "del":
-        await delete_record(player_id, level_id)
-        creator_str = dict(level).get('creator', 'Unknown')
-        await message.answer(f"🗑 Рекорд удален: {level['level_name']} [{creator_str}] для {player['nickname']}")
-        
-        new_leaderboard = await get_leaderboard()
-        await send_record_notification(
-            bot, player['nickname'], player['platform'], level['level_name'], 
-            level['position'], old_leaderboard, new_leaderboard, record_deleted=True
-        )
+        deleted_count = await delete_record(player_id, level_id)
+        if deleted_count > 0:
+            creator_str = dict(level).get('creator', 'Unknown')
+            await message.answer(f"🗑 Рекорд удален: {level['level_name']} [{creator_str}] для {player['nickname']}")
+            
+            new_leaderboard = await get_leaderboard()
+            await send_record_notification(
+                bot, player['nickname'], player['platform'], level['level_name'], 
+                level['position'], old_leaderboard, new_leaderboard, record_deleted=True
+            )
+        else:
+            await message.answer("❌ У этого игрока нет рекордов на данном уровне.")
 
 @router.message(Command("info_update", "iu", ignore_case=True))
 async def cmd_info_update(message: Message):
