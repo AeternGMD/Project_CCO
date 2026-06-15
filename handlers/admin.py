@@ -405,21 +405,30 @@ async def cmd_restore(message: Message, bot: Bot):
     import subprocess
     import os
     if not message.reply_to_message or not message.reply_to_message.document:
-        await message.answer("❌ Вы должны ответить на сообщение с файлом .sql.")
+        await message.answer("❌ Вы должны ответить на сообщение с файлом (.sql или .db).")
         return
         
     doc = message.reply_to_message.document
-    if not doc.file_name.endswith('.sql') and not doc.file_name.endswith('.db'):
-        await message.answer("❌ Неверный формат файла.")
+    is_sqlite = doc.file_name.endswith('.db')
+    is_sql = doc.file_name.endswith('.sql')
+    
+    if not is_sqlite and not is_sql:
+        await message.answer("❌ Неверный формат файла. Нужен .sql или .db")
         return
         
-    backup_path = "restore.sql"
+    backup_path = "restore.db" if is_sqlite else "restore.sql"
     await bot.download(doc, destination=backup_path)
     
     try:
-        with open(backup_path, "r") as f:
-            subprocess.run(["mysql", "-u", "root", "gdbot"], stdin=f, check=True)
-        await message.answer("✅ База данных успешно восстановлена!")
+        if is_sql:
+            with open(backup_path, "r") as f:
+                subprocess.run(["mysql", "-u", "root", "gdbot"], stdin=f, check=True)
+            await message.answer("✅ База данных (SQL) успешно восстановлена!")
+        else:
+            await message.answer("⏳ Обнаружен старый формат базы SQLite (.db). Начинаю автоматическую миграцию в MariaDB... Это займет пару секунд.")
+            from database.migrate import migrate_sqlite_to_mysql
+            await migrate_sqlite_to_mysql(backup_path)
+            await message.answer("✅ База данных SQLite успешно перенесена и восстановлена в MariaDB!")
     except Exception as e:
         await message.answer(f"❌ Ошибка при восстановлении: {e}")
     finally:
