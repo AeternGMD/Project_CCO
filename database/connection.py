@@ -46,7 +46,7 @@ async def init_connection():
     if _global_pool is None:
         _global_pool = await aiomysql.create_pool(
             host='127.0.0.1',
-            port=3306,
+            port=33060,
             user='bot',
             password='botpassword',
             db='gdbot',
