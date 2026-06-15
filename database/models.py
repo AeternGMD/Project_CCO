@@ -142,7 +142,7 @@ async def get_ambiguous_level_names() -> set:
         async with get_db_connection() as conn:
             cursor = await conn.execute("SELECT level_name FROM levels_cache GROUP BY level_name COLLATE NOCASE HAVING count(*) > 1")
             rows = await cursor.fetchall()
-            _ambiguous_names_cache = {r[0].lower() for r in rows}
+            _ambiguous_names_cache = {r['level_name'].lower() for r in rows}
     return _ambiguous_names_cache
 
 async def get_total_levels() -> int:
