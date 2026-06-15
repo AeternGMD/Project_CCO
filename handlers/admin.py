@@ -389,25 +389,42 @@ async def cmd_info_update(message: Message):
 
 @router.message(Command("backup", "bkp", ignore_case=True))
 async def cmd_backup(message: Message):
-    if os.path.exists(DB_PATH):
-        db_file = FSInputFile(DB_PATH)
+    import subprocess
+    import os
+    backup_path = "backup.sql"
+    try:
+        subprocess.run(["mysqldump", "-u", "root", "gdbot"], stdout=open(backup_path, "w"), check=True)
+        db_file = FSInputFile(backup_path)
         await message.answer_document(db_file, caption="Резервная копия базы данных.")
-    else:
-        await message.answer("❌ База данных не найдена.")
+        os.remove(backup_path)
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при создании бекапа: {e}")
 
 @router.message(Command("restore", "rst", ignore_case=True))
 async def cmd_restore(message: Message, bot: Bot):
+    import subprocess
+    import os
     if not message.reply_to_message or not message.reply_to_message.document:
-        await message.answer("❌ Вы должны ответить на сообщение с файлом database.db.")
+        await message.answer("❌ Вы должны ответить на сообщение с файлом .sql.")
         return
         
     doc = message.reply_to_message.document
-    if not doc.file_name.endswith('.db'):
+    if not doc.file_name.endswith('.sql') and not doc.file_name.endswith('.db'):
         await message.answer("❌ Неверный формат файла.")
         return
         
-    await bot.download(doc, destination=DB_PATH)
-    await message.answer("✅ База данных успешно восстановлена!")
+    backup_path = "restore.sql"
+    await bot.download(doc, destination=backup_path)
+    
+    try:
+        with open(backup_path, "r") as f:
+            subprocess.run(["mysql", "-u", "root", "gdbot"], stdin=f, check=True)
+        await message.answer("✅ База данных успешно восстановлена!")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при восстановлении: {e}")
+    finally:
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
 
 # --- Управление банами ---
 

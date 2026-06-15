@@ -1,16 +1,22 @@
 FROM python:3.11-slim
 
+# Установка MariaDB
+RUN apt-get update && \
+    apt-get install -y mariadb-server && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
+# Установка зависимостей Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Копирование исходников
 COPY . .
 
-# Environment variables will be provided via .env file or docker run
-# Create data directory for SQLite
-RUN mkdir -p data
+# Настройка скрипта запуска
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["python", "main.py"]
+# Запуск скрипта
+CMD ["/entrypoint.sh"]

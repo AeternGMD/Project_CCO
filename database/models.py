@@ -1,5 +1,4 @@
 from typing import List, Optional, Dict, Any
-import aiosqlite
 from database.connection import get_db_connection
 
 # --- Admin Operations ---
@@ -47,17 +46,17 @@ async def add_player(nickname: str, demonlist_id: str, platform: str, location: 
         await conn.commit()
     mark_leaderboard_dirty()
 
-async def get_player_by_nick(nickname: str) -> Optional[aiosqlite.Row]:
+async def get_player_by_nick(nickname: str) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players WHERE nickname COLLATE NOCASE = ?", (nickname,))
         return await cursor.fetchone()
 
-async def get_player_by_id(player_id: int) -> Optional[aiosqlite.Row]:
+async def get_player_by_id(player_id: int) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players WHERE id = ?", (player_id,))
         return await cursor.fetchone()
 
-async def get_player_by_tg(tg_id: int) -> Optional[aiosqlite.Row]:
+async def get_player_by_tg(tg_id: int) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players WHERE tg_id = ?", (tg_id,))
         return await cursor.fetchone()
@@ -72,12 +71,12 @@ async def unlink_player_tg(player_id: int):
         await conn.execute("UPDATE players SET tg_id = NULL WHERE id = ?", (player_id,))
         await conn.commit()
 
-async def get_all_players() -> List[aiosqlite.Row]:
+async def get_all_players() -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players")
         return await cursor.fetchall()
 
-async def search_players(query: str, limit: int = 10) -> List[aiosqlite.Row]:
+async def search_players(query: str, limit: int = 10) -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM players WHERE nickname LIKE ? LIMIT ?", (f"%{query}%", limit))
         return await cursor.fetchall()
@@ -155,22 +154,22 @@ async def get_total_levels() -> int:
             _total_levels_cache = row['cnt'] if row else 0
     return _total_levels_cache
 
-async def get_level_by_id(level_id: int) -> Optional[aiosqlite.Row]:
+async def get_level_by_id(level_id: int) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_id = ?", (level_id,))
         return await cursor.fetchone()
 
-async def get_levels_by_name(level_name: str) -> List[aiosqlite.Row]:
+async def get_levels_by_name(level_name: str) -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_name COLLATE NOCASE = ? ORDER BY position ASC", (level_name,))
         return await cursor.fetchall()
 
-async def search_levels(query: str, limit: int = 10) -> List[aiosqlite.Row]:
+async def search_levels(query: str, limit: int = 10) -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM levels_cache WHERE level_name LIKE ? ORDER BY position ASC LIMIT ?", (f"%{query}%", limit))
         return await cursor.fetchall()
 
-async def get_levels_with_victors(start_pos: int, end_pos: int) -> List[aiosqlite.Row]:
+async def get_levels_with_victors(start_pos: int, end_pos: int) -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute('''
             SELECT l.*, COUNT(DISTINCT r.player_id) as victors_count
@@ -208,7 +207,7 @@ async def add_record(player_id: int, level_id: int, progress_start: int, progres
         await conn.commit()
     mark_leaderboard_dirty()
 
-async def get_player_records(player_id: int) -> List[aiosqlite.Row]:
+async def get_player_records(player_id: int) -> List[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute('''
             SELECT r.*, l.level_name, l.position, l.creator 
@@ -218,7 +217,7 @@ async def get_player_records(player_id: int) -> List[aiosqlite.Row]:
         ''', (player_id,))
         return await cursor.fetchall()
 
-async def get_players_records(player_ids: List[int]) -> Dict[int, List[aiosqlite.Row]]:
+async def get_players_records(player_ids: List[int]) -> Dict[int, List[dict]]:
     if not player_ids: return {}
     placeholders = ",".join("?" for _ in player_ids)
     async with get_db_connection() as conn:
@@ -236,7 +235,7 @@ async def get_players_records(player_ids: List[int]) -> Dict[int, List[aiosqlite
         result[r['player_id']].append(r)
     return result
 
-async def get_record(player_id: int, level_id: int) -> Optional[aiosqlite.Row]:
+async def get_record(player_id: int, level_id: int) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute('''
             SELECT * FROM records WHERE player_id = ? AND level_id = ?
@@ -261,16 +260,16 @@ async def update_record_status(record_id: int, status: str):
 
 async def get_setting(key: str, default: str = None) -> Optional[str]:
     async with get_db_connection() as conn:
-        cursor = await conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        cursor = await conn.execute("SELECT value FROM settings WHERE `key` = ?", (key,))
         row = await cursor.fetchone()
         return row['value'] if row else default
 
 async def set_setting(key: str, value: str):
     async with get_db_connection() as conn:
         await conn.execute('''
-            INSERT INTO settings (key, value)
+            INSERT INTO settings (`key`, value)
             VALUES (?, ?)
-            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            ON DUPLICATE KEY UPDATE value=VALUES(value)
         ''', (key, str(value)))
         await conn.commit()
 
@@ -293,7 +292,7 @@ async def unban_user(user_id: int) -> bool:
         await conn.commit()
         return cursor.rowcount > 0
 
-async def get_ban_info(user_id: int) -> Optional[aiosqlite.Row]:
+async def get_ban_info(user_id: int) -> Optional[dict]:
     async with get_db_connection() as conn:
         cursor = await conn.execute("SELECT * FROM banned_users WHERE user_id = ?", (user_id,))
         return await cursor.fetchone()

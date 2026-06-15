@@ -90,7 +90,7 @@ async def get_leaderboard(filter_platform: Optional[str] = None, filter_location
             score = scores.get(p['id'])
             if score is not None:
                 full_lb.append({
-                    'player': dict(p), # Convert aiosqlite.Row to dict
+                    'player': p, # Already a dict
                     'score': score
                 })
                 
