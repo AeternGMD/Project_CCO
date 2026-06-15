@@ -127,11 +127,11 @@ async def upsert_level(level_id: int, level_name: str, position: int, creator: s
         await conn.execute('''
             INSERT INTO levels_cache (level_id, level_name, position, creator, ingame_id)
             VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(level_id) DO UPDATE SET
-                level_name=excluded.level_name,
-                position=excluded.position,
-                creator=excluded.creator,
-                ingame_id=excluded.ingame_id
+            ON DUPLICATE KEY UPDATE
+                level_name=VALUES(level_name),
+                position=VALUES(position),
+                creator=VALUES(creator),
+                ingame_id=VALUES(ingame_id)
         ''', (level_id, level_name, position, creator, ingame_id))
         await conn.commit()
     invalidate_level_caches()
@@ -280,9 +280,9 @@ async def ban_user(user_id: int, banned_until: int = None, reason: str = None):
         await conn.execute('''
             INSERT INTO banned_users (user_id, banned_until, reason)
             VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET 
-                banned_until=excluded.banned_until,
-                reason=excluded.reason
+            ON DUPLICATE KEY UPDATE 
+                banned_until=VALUES(banned_until),
+                reason=VALUES(reason)
         ''', (user_id, banned_until, reason))
         await conn.commit()
 
