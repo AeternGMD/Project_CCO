@@ -138,7 +138,10 @@ async def cmd_start(message: Message):
 async def send_leaderboard(message_or_query, leaderboard: list, title: str, filter_type: str, page: int = 1):
     if not leaderboard:
         if hasattr(message_or_query, 'message'):
-            await message_or_query.message.edit_text(f"{title}\n\nТоп пуст.")
+            try:
+                await message_or_query.message.edit_text(f"{title}\n\nТоп пуст.")
+            except Exception:
+                pass
         else:
             await message_or_query.answer(f"{title}\n\nТоп пуст.")
         return
@@ -212,7 +215,10 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
     markup = builder.as_markup() if total_pages > 1 else None
     
     if hasattr(message_or_query, 'message'):
-        await message_or_query.message.edit_text(text, reply_markup=markup)
+        try:
+            await message_or_query.message.edit_text(text, reply_markup=markup)
+        except Exception:
+            pass
     else:
         await message_or_query.answer(text, reply_markup=markup)
 
@@ -235,6 +241,10 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
         return
         
     await send_leaderboard(query, lb, title, ftype, page)
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
 @router.message(Command("top", "t", ignore_case=True))
 async def cmd_top(message: Message):
@@ -409,7 +419,10 @@ async def render_level_info(level, message_or_query):
     text = await generate_level_info_text(level)
             
     if hasattr(message_or_query, 'message'):
-        await message_or_query.message.edit_text(text)
+        try:
+            await message_or_query.message.edit_text(text)
+        except Exception:
+            pass
     else:
         await message_or_query.answer(text)
 
@@ -417,6 +430,10 @@ async def render_level_info(level, message_or_query):
 async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
     lvl = await get_level_by_id(callback_data.level_id)
     await render_level_info(lvl, query)
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
 @router.message(Command("lvlp", "lp", ignore_case=True))
 async def cmd_lvlp(message: Message):
@@ -532,7 +549,10 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         if not lvls:
             text = f"❌ Уровень '{lvl_name}' не найден."
             if hasattr(message_or_query, 'message'):
-                await message_or_query.message.edit_text(text)
+                try:
+                    await message_or_query.message.edit_text(text)
+                except Exception:
+                    pass
             else:
                 await message_or_query.answer(text)
             await state.clear()
@@ -557,7 +577,10 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
             
             text = f"Уровень '{lvl_name}' имеет несколько вариантов. Выберите нужный:"
             if hasattr(message_or_query, 'message'):
-                await message_or_query.message.edit_text(text, reply_markup=builder.as_markup())
+                try:
+                    await message_or_query.message.edit_text(text, reply_markup=builder.as_markup())
+                except Exception:
+                    pass
             else:
                 await message_or_query.answer(text, reply_markup=builder.as_markup())
             return
@@ -606,7 +629,10 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         f"🏆 Место в топе: {old_rank_str} -> {new_rank} {diff_str}"
     )
     if hasattr(message_or_query, 'message'):
-        await message_or_query.message.edit_text(text)
+        try:
+            await message_or_query.message.edit_text(text)
+        except Exception:
+            pass
     else:
         await message_or_query.answer(text)
 
@@ -644,6 +670,11 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
         pass
     
     await process_try_query(query, state, player, data['pending_names'], new_level_ids, found_levels, completed_level_ids)
+    
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
 @router.message()
 async def unknown_message(message: Message):

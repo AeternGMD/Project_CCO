@@ -30,7 +30,7 @@ echo [*] Removing old container if it exists...
 docker rm -f gdbot_local_container >nul 2>&1
 
 echo [*] Starting the bot...
-docker run -d --name gdbot_local_container gdbot_local
+docker run -d --name gdbot_local_container -v gdbot_local_data:/var/lib/mysql gdbot_local
 
 echo.
 echo ==========================================
