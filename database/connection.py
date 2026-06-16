@@ -50,7 +50,7 @@ async def init_connection():
             user='bot',
             password='botpassword',
             db='gdbot',
-            autocommit=False
+            autocommit=True
         )
 
 async def close_connection():

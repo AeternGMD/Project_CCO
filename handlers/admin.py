@@ -393,7 +393,15 @@ async def cmd_backup(message: Message):
     import os
     backup_path = "backup.sql"
     try:
-        subprocess.run(["mysqldump", "-u", "root", "gdbot"], stdout=open(backup_path, "w"), check=True)
+        with open(backup_path, "w") as f:
+            import asyncio
+            proc = await asyncio.create_subprocess_exec(
+                "mysqldump", "-u", "root", "gdbot",
+                stdout=f
+            )
+            await proc.communicate()
+            if proc.returncode != 0:
+                raise Exception("mysqldump failed")
         db_file = FSInputFile(backup_path)
         await message.answer_document(db_file, caption="Резервная копия базы данных.")
         os.remove(backup_path)
@@ -422,7 +430,14 @@ async def cmd_restore(message: Message, bot: Bot):
     try:
         if is_sql:
             with open(backup_path, "r") as f:
-                subprocess.run(["mysql", "-u", "root", "gdbot"], stdin=f, check=True)
+                import asyncio
+                proc = await asyncio.create_subprocess_exec(
+                    "mysql", "-u", "root", "gdbot",
+                    stdin=f
+                )
+                await proc.communicate()
+                if proc.returncode != 0:
+                    raise Exception("mysql restore failed")
             await message.answer("✅ База данных (SQL) успешно восстановлена!")
         else:
             await message.answer("⏳ Обнаружен старый формат базы SQLite (.db). Начинаю автоматическую миграцию в MariaDB... Это займет пару секунд.")
