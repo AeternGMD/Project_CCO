@@ -1,47 +1,44 @@
 @echo off
-chcp 65001 >nul
 echo ==========================================
-echo GD Bot - Инструмент локального тестирования
+echo GD Bot - Local Testing Tool
 echo ==========================================
 
-:: Проверка установки Docker
 docker --version >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
-    echo [ОШИБКА] Docker не установлен или не запущен!
-    echo Скачайте Docker Desktop с официального сайта: https://www.docker.com/products/docker-desktop/
-    echo Установите его, запустите и попробуйте снова.
+    echo [ERROR] Docker is not installed or not running!
+    echo Please download Docker Desktop from: https://www.docker.com/products/docker-desktop/
+    echo Install it, run it, and try again.
     pause
     exit /b
 )
 
-:: Проверка наличия .env файла
 IF NOT EXIST ".env" (
-    echo [ВНИМАНИЕ] Файл .env не найден! Создаю шаблон...
-    echo BOT_TOKEN=ВАШ_ТОКЕН_ДЛЯ_ТЕСТОВОГО_БОТА > .env
+    echo [WARNING] .env file not found! Creating a template...
+    echo BOT_TOKEN=YOUR_TEST_BOT_TOKEN_HERE > .env
     echo.
-    echo Пожалуйста, откройте появившийся файл .env через Блокнот.
-    echo Вставьте туда токен вашего тестового бота (от @BotFather).
-    echo После этого запустите этот скрипт еще раз.
+    echo Please open the new .env file with Notepad.
+    echo Paste your test bot token from @BotFather there.
+    echo Then run this script again.
     pause
     exit /b
 )
 
-echo [*] Собираю образ Docker (это может занять минутку)...
+echo [*] Building Docker image (this might take a minute)...
 docker build -t gdbot_local .
 
-echo [*] Удаляю старый контейнер (если он был)...
+echo [*] Removing old container if it exists...
 docker rm -f gdbot_local_container >nul 2>&1
 
-echo [*] Запускаю бота...
+echo [*] Starting the bot...
 docker run -d --name gdbot_local_container gdbot_local
 
 echo.
 echo ==========================================
-echo [УСПЕХ] Бот запущен и работает в фоне!
-echo Чтобы остановить бота, введите команду: docker rm -f gdbot_local_container
+echo [SUCCESS] Bot is running in the background!
+echo To stop the bot, type: docker rm -f gdbot_local_container
 echo ==========================================
 echo.
-echo Сейчас я выведу логи бота (чтобы выйти из логов, нажмите Ctrl+C):
+echo Displaying bot logs (Press Ctrl+C to exit logs):
 echo.
 docker logs -f gdbot_local_container
 pause
