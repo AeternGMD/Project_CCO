@@ -637,9 +637,9 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
         new_level_ids.append(lvl['level_id'])
         found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
     
-    # Delete the keyboard to prevent double clicks
+    # Remove the keyboard to prevent double clicks without deleting the message
     try:
-        await query.message.delete()
+        await query.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
     
