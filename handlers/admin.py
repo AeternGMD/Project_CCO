@@ -393,7 +393,7 @@ async def cmd_backup(message: Message):
     import os
     backup_path = "backup.sql"
     try:
-        with open(backup_path, "w") as f:
+        with open(backup_path, "wb") as f:
             import asyncio
             proc = await asyncio.create_subprocess_exec(
                 "mysqldump", "-u", "root", "gdbot",
@@ -429,7 +429,7 @@ async def cmd_restore(message: Message, bot: Bot):
     
     try:
         if is_sql:
-            with open(backup_path, "r") as f:
+            with open(backup_path, "rb") as f:
                 import asyncio
                 proc = await asyncio.create_subprocess_exec(
                     "mysql", "-u", "root", "gdbot",
