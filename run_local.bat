@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================
-echo GD Bot - Local Testing Tool
+echo GD Bot - Local Testing Tool (Docker Compose)
 echo ==========================================
 
 docker --version >nul 2>&1
@@ -23,22 +23,16 @@ IF NOT EXIST ".env" (
     exit /b
 )
 
-echo [*] Building Docker image (this might take a minute)...
-docker build -t gdbot_local .
-
-echo [*] Removing old container if it exists...
-docker rm -f gdbot_local_container >nul 2>&1
-
-echo [*] Starting the bot...
-docker run -d --name gdbot_local_container -v gdbot_local_data:/var/lib/mysql gdbot_local
+echo [*] Starting the bot and database using Docker Compose...
+docker-compose up -d --build
 
 echo.
 echo ==========================================
-echo [SUCCESS] Bot is running in the background!
-echo To stop the bot, type: docker rm -f gdbot_local_container
+echo [SUCCESS] Bot and Database are running in the background!
+echo To stop them, type: docker-compose down
 echo ==========================================
 echo.
 echo Displaying bot logs (Press Ctrl+C to exit logs):
 echo.
-docker logs -f gdbot_local_container
+docker-compose logs -f bot
 pause

@@ -44,12 +44,13 @@ class MySQLConnectionWrapper:
 async def init_connection():
     global _global_pool
     if _global_pool is None:
+        import os
         _global_pool = await aiomysql.create_pool(
-            host='127.0.0.1',
-            port=33060,
-            user='bot',
-            password='botpassword',
-            db='gdbot',
+            host=os.environ.get('DB_HOST', '127.0.0.1'),
+            port=int(os.environ.get('DB_PORT', '33060')),
+            user=os.environ.get('DB_USER', 'bot'),
+            password=os.environ.get('DB_PASSWORD', 'botpassword'),
+            db=os.environ.get('DB_NAME', 'gdbot'),
             autocommit=True
         )
 

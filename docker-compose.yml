@@ -1,17 +1,39 @@
 services:
+  db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      MARIADB_DATABASE: gdbot
+      MARIADB_USER: bot
+      MARIADB_PASSWORD: botpassword
+      MARIADB_ROOT_PASSWORD: rootpassword
+    volumes:
+      - gdbot_data:/var/lib/mysql
+      # To initialize the DB correctly with character set
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - botnet
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+
   bot:
-    build:
-      context: .
-      network: host
-    container_name: gd_leaderboard_bot
-    network_mode: "host"
-    restart: unless-stopped
+    build: .
+    restart: always
+    depends_on:
+      - db
     env_file:
       - .env
-    volumes:
-      - ./data:/app/data
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: bot
+      DB_PASSWORD: botpassword
+      DB_NAME: gdbot
+      DB_ROOT_PASSWORD: rootpassword
+    networks:
+      - botnet
+
+volumes:
+  gdbot_data:
+
+networks:
+  botnet:

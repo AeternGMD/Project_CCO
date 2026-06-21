@@ -1,22 +1,18 @@
 FROM python:3.11-slim
 
-# Установка MariaDB
+# Установка клиента MySQL для бэкапов (mysqldump)
 RUN apt-get update && \
-    apt-get install -y mariadb-server && \
+    apt-get install -y default-mysql-client && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Установка зависимостей Python
+# Копируем зависимости и устанавливаем
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копирование исходников
+# Копируем весь код бота
 COPY . .
 
-# Настройка скрипта запуска
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Запуск скрипта
-CMD ["/entrypoint.sh"]
+# Запуск бота напрямую
+CMD ["python", "main.py"]
