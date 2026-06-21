@@ -402,7 +402,7 @@ async def cmd_backup(message: Message):
             db_name = os.environ.get('DB_NAME', 'gdbot')
             
             proc = await asyncio.create_subprocess_exec(
-                "mysqldump", "-h", db_host, "-u", db_user, f"-p{db_pass}", db_name,
+                "mysqldump", "--skip-ssl", "-h", db_host, "-u", db_user, f"-p{db_pass}", db_name,
                 stdout=f
             )
             await proc.communicate()
@@ -444,7 +444,7 @@ async def cmd_restore(message: Message, bot: Bot):
                 db_name = os.environ.get('DB_NAME', 'gdbot')
                 
                 proc = await asyncio.create_subprocess_exec(
-                    "mysql", "-h", db_host, "-u", db_user, f"-p{db_pass}", db_name,
+                    "mysql", "--skip-ssl", "-h", db_host, "-u", db_user, f"-p{db_pass}", db_name,
                     stdin=f
                 )
                 await proc.communicate()
