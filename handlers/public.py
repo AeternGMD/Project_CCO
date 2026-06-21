@@ -177,7 +177,7 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
         
         progresses = [r for r in records if not (r['progress_start'] == 0 and r['progress_end'] == 100)]
         progresses = filter_best_progresses(progresses, 'level_id')
-        progresses.sort(key=lambda x: (x['progress_start'] != 0, x['progress_end']))
+        progresses.sort(key=lambda x: x['position'])
         
         if top_5:
             hardest_texts = []
@@ -281,7 +281,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
     
     progresses = [r for r in records if not (r['progress_start'] == 0 and r['progress_end'] == 100)]
     progresses = filter_best_progresses(progresses, 'level_id')
-    progresses.sort(key=lambda x: (x['progress_start'] != 0, x['progress_end']))
+    progresses.sort(key=lambda x: x['position'])
     
     text = f"👤 Профиль {player['nickname']}\n"
     loc_str = "Неизвестно" if player['location'] == "-" else player['location']
