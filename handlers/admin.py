@@ -414,12 +414,16 @@ async def cmd_backup(message: Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка при создании бекапа: {e}")
 
-@router.message(Command("restore", "rst", ignore_case=True))
+@router.message(Command("restore"))
 async def cmd_restore(message: Message, bot: Bot):
-    import subprocess
-    import os
+    print(f"DEBUG: /restore received from {message.from_user.id}")
+    if message.from_user.id not in ADMIN_IDS:
+        print("DEBUG: User not in ADMIN_IDS")
+        return
+
     if not message.reply_to_message or not message.reply_to_message.document:
-        await message.answer("❌ Вы должны ответить на сообщение с файлом (.sql или .db).")
+        print("DEBUG: Not replying to a document")
+        await message.answer("⚠️ Вы должны ответить этой командой на файл .db или .sql!")
         return
         
     doc = message.reply_to_message.document
@@ -431,10 +435,13 @@ async def cmd_restore(message: Message, bot: Bot):
         return
         
     backup_path = "restore.db" if is_sqlite else "restore.sql"
+    
+    msg = await message.answer("⏳ Скачиваю файл базы данных...")
     await bot.download(doc, destination=backup_path)
     
     try:
         if is_sql:
+            await msg.edit_text("⏳ Восстанавливаю SQL дамп...")
             with open(backup_path, "rb") as f:
                 import asyncio
                 
@@ -447,17 +454,21 @@ async def cmd_restore(message: Message, bot: Bot):
                     "mysql", "--skip-ssl", "-h", db_host, "-u", db_user, f"-p{db_pass}", db_name,
                     stdin=f
                 )
-                await proc.communicate()
+                try:
+                    await asyncio.wait_for(proc.communicate(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    raise Exception("Процесс завис из-за неверной кодировки файла. Сделайте /backup прямо через бота.")
                 if proc.returncode != 0:
                     raise Exception("mysql restore failed")
-            await message.answer("✅ База данных (SQL) успешно восстановлена!")
+            await msg.edit_text("✅ База данных (SQL) успешно восстановлена!")
         else:
-            await message.answer("⏳ Обнаружен старый формат базы SQLite (.db). Начинаю автоматическую миграцию в MariaDB... Это займет пару секунд.")
+            await msg.edit_text("⏳ Обнаружен старый формат базы SQLite (.db). Начинаю автоматическую миграцию в MariaDB... Это займет пару секунд.")
             from database.migrate import migrate_sqlite_to_mysql
             await migrate_sqlite_to_mysql(backup_path)
-            await message.answer("✅ База данных SQLite успешно перенесена и восстановлена в MariaDB!")
+            await msg.edit_text("✅ База данных SQLite успешно мигрирована в MariaDB!")
     except Exception as e:
-        await message.answer(f"❌ Ошибка при восстановлении: {e}")
+        await msg.edit_text(f"❌ Ошибка при восстановлении: {e}")
     finally:
         if os.path.exists(backup_path):
             os.remove(backup_path)
