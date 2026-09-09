@@ -417,9 +417,6 @@ async def cmd_backup(message: Message):
 @router.message(Command("restore"))
 async def cmd_restore(message: Message, bot: Bot):
     print(f"DEBUG: /restore received from {message.from_user.id}")
-    if message.from_user.id not in ADMIN_IDS:
-        print("DEBUG: User not in ADMIN_IDS")
-        return
 
     if not message.reply_to_message or not message.reply_to_message.document:
         print("DEBUG: Not replying to a document")
