@@ -2,12 +2,13 @@ services:
   db:
     image: mariadb:10.11
     restart: always
-    network_mode: "host"
     environment:
       MARIADB_DATABASE: gdbot
       MARIADB_USER: bot
       MARIADB_PASSWORD: botpassword
       MARIADB_ROOT_PASSWORD: rootpassword
+    ports:
+      - "33060:3306"
     volumes:
       - gdbot_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -23,7 +24,7 @@ services:
       - .env
     environment:
       DB_HOST: 127.0.0.1
-      DB_PORT: 3306
+      DB_PORT: 33060
       DB_USER: bot
       DB_PASSWORD: botpassword
       DB_NAME: gdbot
