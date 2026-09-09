@@ -403,7 +403,7 @@ async def cmd_backup(message: Message):
             db_port = os.environ.get('DB_PORT', '3306')
             
             proc = await asyncio.create_subprocess_exec(
-                "mysqldump", "--skip-ssl", "-h", db_host, "-P", db_port, "-u", db_user, f"-p{db_pass}", db_name,
+                "mysqldump", "--skip-ssl", "--protocol=tcp", "-h", db_host, "-P", db_port, "-u", db_user, f"-p{db_pass}", db_name,
                 stdout=f
             )
             await proc.communicate()
@@ -450,7 +450,7 @@ async def cmd_restore(message: Message, bot: Bot):
                 db_port = os.environ.get('DB_PORT', '3306')
                 
                 proc = await asyncio.create_subprocess_exec(
-                    "mysql", "--skip-ssl", "-h", db_host, "-P", db_port, "-u", db_user, f"-p{db_pass}", db_name,
+                    "mysql", "--skip-ssl", "--protocol=tcp", "-h", db_host, "-P", db_port, "-u", db_user, f"-p{db_pass}", db_name,
                     stdin=f
                 )
                 try:
