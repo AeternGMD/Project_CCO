@@ -136,6 +136,24 @@ async def upsert_level(level_id: int, level_name: str, position: int, creator: s
         await conn.commit()
     invalidate_level_caches()
 
+async def upsert_levels(levels: List[tuple]):
+    """Insert or update a complete batch of cached levels in one DB round trip."""
+    if not levels:
+        return
+
+    async with get_db_connection() as conn:
+        await conn.executemany('''
+            INSERT INTO levels_cache (level_id, level_name, position, creator, ingame_id)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                level_name=VALUES(level_name),
+                position=VALUES(position),
+                creator=VALUES(creator),
+                ingame_id=VALUES(ingame_id)
+        ''', levels)
+        await conn.commit()
+    invalidate_level_caches()
+
 async def get_ambiguous_level_names() -> set:
     global _ambiguous_names_cache
     if _ambiguous_names_cache is None:

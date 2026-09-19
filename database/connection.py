@@ -35,6 +35,17 @@ class MySQLConnectionWrapper:
         await cursor.execute(sql, args)
         return MySQLCursorWrapper(cursor)
 
+    async def executemany(self, sql, args):
+        # Convert SQLite syntax to MySQL syntax dynamically
+        sql = sql.replace('?', '%s')
+        sql = sql.replace('COLLATE NOCASE', '')
+        sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
+        sql = sql.replace('INSERT OR IGNORE', 'INSERT IGNORE')
+
+        cursor = await self.conn.cursor(aiomysql.DictCursor)
+        await cursor.executemany(sql, args)
+        return MySQLCursorWrapper(cursor)
+
     async def commit(self):
         await self.conn.commit()
 
