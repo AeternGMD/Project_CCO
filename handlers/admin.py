@@ -10,7 +10,7 @@ from database.models import (
     get_player_by_id
 )
 from services.calculator import get_leaderboard, calculate_progress_eligibility
-from services.demonlist_api import fetch_levels, sync_player_records
+from services.demonlist_api import DemonlistAPIError, fetch_levels, sync_player_records
 from services.notifications import send_record_notification
 from config import DB_PATH
 
@@ -374,18 +374,38 @@ async def cmd_info_update(message: Message):
         except:
             pass
             
-    updated = await fetch_levels(progress_callback=update_progress)
+    try:
+        updated = await fetch_levels(progress_callback=update_progress)
+    except DemonlistAPIError as exc:
+        await msg.edit_text(
+            "❌ Не удалось обновить базу уровней: Demonlist API не вернул "
+            "полные данные. Попробуйте ещё раз позже.\n\n"
+            f"Техническая причина: {exc}"
+        )
+        return
     
     await msg.edit_text(f"✅ База уровней обновлена ({updated}).\n🔄 Синхронизация профилей...")
     
     # Run sync for all players in background
     from database.models import get_all_players
     players = await get_all_players()
+    failed_profiles = 0
     for p in players:
         if p['api_sync']:
-            await sync_player_records(p['id'])
-            
-    await msg.edit_text(f"✅ База уровней и профили игроков успешно обновлены!\nОбновлено уровней: {updated}")
+            if not await sync_player_records(p['id']):
+                failed_profiles += 1
+
+    if failed_profiles:
+        await msg.edit_text(
+            f"⚠️ База уровней обновлена.\n"
+            f"Обновлено уровней: {updated}\n"
+            f"Не удалось синхронизировать профилей: {failed_profiles}"
+        )
+    else:
+        await msg.edit_text(
+            f"✅ База уровней и профили игроков успешно обновлены!\n"
+            f"Обновлено уровней: {updated}"
+        )
 
 @router.message(Command("backup", "bkp", ignore_case=True))
 async def cmd_backup(message: Message):
