@@ -10,13 +10,14 @@ from database.models import (
     get_player_by_id
 )
 from services.calculator import get_leaderboard, calculate_progress_eligibility
-from services.demonlist_api import DemonlistAPIError, fetch_levels, sync_player_records
+from services.demonlist_api import DemonlistAPIError, LevelUpdateBusy, fetch_levels, sync_player_records
 from services.notifications import send_record_notification
 from config import DB_PATH
-from utils.record_command import parse_record_command
+from handlers.record_input import handle_record_command, router as record_input_router
 
 router = Router()
 router.message.filter(AdminFilter())
+router.include_router(record_input_router)
 
 class RecordCallback(CallbackData, prefix="rec"):
     action: str
@@ -149,48 +150,11 @@ async def cmd_edit_player(message: Message):
 
 @router.message(Command("record", "r", ignore_case=True))
 async def cmd_record(message: Message):
-    try:
-        nick, actions = parse_record_command(message.text)
-    except ValueError:
-        await message.answer(
-            "❌ Неверный формат команды.\n"
-            "Один уровень: /r player \"Tidal Wave\" 100\n"
-            "Прогрессы: /r player Bloodbath 60 | 40-100\n"
-            "Несколько прохождений: /r player Tidal Wave, Bloodbath, Sonic Wave\n\n"
-            "Список через запятую зачисляет каждый уровень на 100%. "
-            "Ник с пробелами берите в кавычки; пустые элементы списка недопустимы."
-        )
-        return
-        
-    player = await get_player_by_nick(nick)
-    if not player:
-        await message.answer("❌ Игрок не найден.")
-        return
-        
-    for level_query, p_start, p_end in actions:
-        await handle_level_query(message, player['id'], level_query, "add", p_start, p_end)
+    await handle_record_command(message)
 
 @router.message(Command("del_record", "dr", ignore_case=True))
 async def cmd_del_record(message: Message):
-    import shlex
-    try:
-        args = shlex.split(message.text)
-    except ValueError:
-        args = message.text.split()
-        
-    if len(args) < 3:
-        await message.answer("Использование: /del_record [\"Ник\"] [\"Уровень\"]")
-        return
-        
-    nick = args[1]
-    level_query = args[2]
-    
-    player = await get_player_by_nick(nick)
-    if not player:
-        await message.answer("❌ Игрок не найден.")
-        return
-        
-    await handle_level_query(message, player['id'], level_query, "del", 0, 100)
+    await handle_record_command(message, action='del')
 
 async def handle_level_query(message: Message, player_id: int, query: str, action: str, progress_start: int, progress_end: int):
     levels = []
@@ -245,6 +209,9 @@ async def process_record_action(message: Message, action: str, player_id: int, l
         
     player = await get_player_by_id(player_id)
     level = await get_level_by_id(level_id)
+    if not player or not level:
+        await message.answer('❌ Игрок или уровень удалён. Повторите команду.')
+        return
     
     old_leaderboard = await get_leaderboard()
     
@@ -350,6 +317,9 @@ async def cmd_info_update(message: Message):
             
     try:
         updated = await fetch_levels(progress_callback=update_progress)
+    except LevelUpdateBusy:
+        await msg.edit_text('⏳ Обновление уровней уже выполняется. Попробуйте позже.')
+        return
     except DemonlistAPIError as exc:
         await msg.edit_text(
             "❌ Не удалось обновить базу уровней: Demonlist API не вернул "
@@ -463,6 +433,8 @@ async def cmd_restore(message: Message, bot: Bot):
     except Exception as e:
         await msg.edit_text(f"❌ Ошибка при восстановлении: {e}")
     finally:
+        from database.models import invalidate_level_caches
+        invalidate_level_caches()
         if os.path.exists(backup_path):
             os.remove(backup_path)
 

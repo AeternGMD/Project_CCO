@@ -69,16 +69,31 @@ async def cmd_start(message: Message):
         }
         
         admin_help = {
-            ('record', 'r'): "ℹ️ <b>Справка по команде /record (Админ)</b>\n\nВносит прогрессы в базу вручную. Поддерживает мульти-прогрессы через <code>|</code>.\n\n📌 <b>Использование:</b>\n  <code>/r Kwikzy Tartarus 100</code>\n  <code>/r Kwikzy Tartarus 60 | 40-100</code>\n  <code>/r \"Mr Spaced\" \"Tidal Wave\" 100</code>\n\n🏆 <b>Сразу несколько уровней на 100%:</b>\n  <code>/r Kwikzy Tidal Wave, Bloodbath, Sonic Wave</code>\n  <code>/r \"Mr Spaced\" Bloodbath, Tartarus</code>\n\nРазделяйте уровни запятыми. Названия с пробелами в списке можно писать без кавычек. Ник с пробелами берите в кавычки.",
+            ('record', 'r'): (
+                "ℹ️ <b>/record — зачисление без обязательных кавычек</b>\n\n"
+                "<code>/r Mr Spaced Theory of Everything 2</code>\n"
+                "<code>/r Mr Spaced: Tidal Wave, Bloodbath</code>\n"
+                "<code>/r Mr Spaced: Tidal Wave = 60% | 40-100</code>\n\n"
+                "Без прогресса зачисляется 100%. Двоеточие отделяет ник, знак = — прогресс. "
+                "Старый ввод с кавычками и процентами тоже работает.\n\n"
+                "Если подходят несколько игроков, уровней или вариантов прочтения цифр, "
+                "бот предложит кнопки. До завершения выбора записей нет. "
+                "Выбирать может только автор команды, в течение 5 минут.\n\n"
+                "<code>/r @42: #1537</code> — точные ID: @ — внутренний ID игрока в боте "
+                "(не Telegram ID), # — ID Demonlist (не игровой ID). "
+                "Они также подходят для названий с запятыми или двоеточием.\n\n"
+                "До 100 уровней за команду. Если имя не найдено, исправьте команду: "
+                "частично она не зачисляется."
+            ),
             ('add_player', 'ap'): "ℹ️ <b>Справка по команде /add_player (Админ)</b>\n\nДобавляет нового игрока в базу.\n\n📌 <b>Использование:</b>\n  <code>/add_player [\"Ник\"] [ID_Демонлиста_или_-] [pc/mobile] [\"Город\"] [1_или_0]</code>\n  Пример: <code>/ap \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1</code>",
             ('edit_player', 'ep'): "ℹ️ <b>Справка по команде /edit_player (Админ)</b>\n\nРедактирует поля игрока (platform, location, api_sync, contacts, demonlist_id, nickname).\n\n📌 <b>Использование:</b>\n  <code>/edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]</code>\n  Пример: <code>/ep Kwikzy location \"Нижний Тагил\"</code>",
             ('del_player', 'dp'): "ℹ️ <b>Справка по команде /del_player (Админ)</b>\n\nПолностью удаляет игрока и все его рекорды.\n\n📌 <b>Использование:</b>\n  <code>/del_player [Ник]</code>",
-            ('del_record', 'dr'): "ℹ️ <b>Справка по команде /del_record (Админ)</b>\n\nУдаляет рекорды игрока на конкретном уровне.\n\n📌 <b>Использование:</b>\n  <code>/del_record [Ник] [Уровень]</code>",
+            ('del_record', 'dr'): "ℹ️ <b>Справка по команде /del_record (Админ)</b>\n\nУдаляет рекорды на указанных уровнях. Кавычки необязательны, при неоднозначности появится выбор.\n\n<code>/dr Mr Spaced: Theory of Everything 2</code>\n<code>/dr Mr Spaced: Tidal Wave, Bloodbath</code>\n<code>/dr @42: #1537</code>",
             ('link',): "ℹ️ <b>Справка по команде /link (Админ)</b>\n\nПривязывает Telegram ID к профилю игрока.\n\n📌 <b>Использование:</b>\n  <code>/link [Ник] [Telegram ID]</code>",
             ('unlink',): "ℹ️ <b>Справка по команде /unlink (Админ)</b>\n\nОтвязывает Telegram аккаунт от профиля.\n\n📌 <b>Использование:</b>\n  <code>/unlink [Ник]</code>",
             ('ban', 'b'): "ℹ️ <b>Справка по команде /ban (Админ)</b>\n\nБанит пользователя в боте по его Telegram ID.\n\n📌 <b>Использование:</b>\n  <code>/ban [Telegram ID] [Дней] [Причина]</code>\n  Пример: <code>/ban 123456789 30 Спам</code>",
             ('unban', 'ub'): "ℹ️ <b>Справка по команде /unban (Админ)</b>\n\nСнимает бан с пользователя.\n\n📌 <b>Использование:</b>\n  <code>/unban [Telegram ID]</code>",
-            ('info_update', 'iu'): "ℹ️ <b>Справка по команде /info_update (Админ)</b>\n\nСинхронизирует баллы и уровни с официальным сайтом Demonlist.\n\n📌 <b>Использование:</b>\n  <code>/info_update</code>",
+            ('info_update', 'iu'): "ℹ️ <b>Справка по команде /info_update (Админ)</b>\n\nВручную обновляет уровни и синхронизирует профили игроков.\n\n<code>/info_update</code>\n\nУровни также обновляются автоматически раз в час после запуска бота, без сообщений в Telegram. Одновременные обновления не запускаются.",
             ('backup', 'bkp'): "ℹ️ <b>Справка по команде /backup (Админ)</b>\n\nСкачивает текущую базу данных <code>database.db</code> в чат.\n\n📌 <b>Использование:</b>\n  <code>/backup</code>",
             ('restore', 'rst'): "ℹ️ <b>Справка по команде /restore (Админ)</b>\n\nВосстанавливает базу данных. Используется ответом (Reply) на сообщение с файлом <code>database.db</code>.\n\n📌 <b>Использование:</b>\n  <code>/restore</code>",
             ('toggle_notifications', 'tn'): "ℹ️ <b>Справка по команде /toggle_notifications (Админ)</b>\n\nВключает или выключает рассылку в канал о новых прохождениях.\n\n📌 <b>Использование:</b>\n  <code>/toggle_notifications</code>",
@@ -289,6 +304,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
     progresses.sort(key=lambda x: x['position'])
     
     text = f"👤 Профиль {player['nickname']}\n"
+    text += f"ID игрока в боте: @{player['id']}\n"
     loc_str = "Неизвестно" if player['location'] == "-" else player['location']
     text += f"Платформа: {player['platform']}\nГород: {loc_str}\n"
     text += f"Средний балл: {score_str}\nМесто в топе: {place_str}\n\n"
@@ -451,7 +467,9 @@ async def generate_level_info_text(level) -> str:
     
     creator_str = dict(level).get('creator', 'Unknown')
     ingame_id = dict(level).get('ingame_id')
-    id_str = f"ID: {ingame_id}" if ingame_id else f"DL ID: {level['level_id']}"
+    id_str = f"DL ID: #{level['level_id']}"
+    if ingame_id:
+        id_str += f" | ID в игре: {ingame_id}"
     text = f"🌋 Уровень: {level['level_name']} [{creator_str}] (Топ-{level['position']} | {id_str})\n\n"
     
     text += f"🏆 Прошли ({len(completions)}):\n"

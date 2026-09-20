@@ -24,6 +24,8 @@ PAGE_SIZE = 50
 PAGE_WINDOW = 20
 MAX_LEVELS = 5_000
 REQUEST_ATTEMPTS = 3
+UPDATE_TIMEOUT = 120
+_update_lock = asyncio.Lock()
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(
     total=12,
     connect=5,
@@ -34,6 +36,10 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(
 
 class DemonlistAPIError(RuntimeError):
     """Raised when Demonlist data cannot be downloaded or validated."""
+
+
+class LevelUpdateBusy(DemonlistAPIError):
+    """Another manual or scheduled level update is already running."""
 
 
 def _get_collection(payload: Any, key: str) -> List[Dict[str, Any]]:
@@ -71,22 +77,29 @@ async def _fetch_all_levels(session) -> List[Dict[str, Any]]:
 
     window_size = PAGE_SIZE * PAGE_WINDOW
     for base_offset in range(0, MAX_LEVELS, window_size):
-        pages = await asyncio.gather(*(
+        tasks = [asyncio.create_task(
             _request_collection(
                 session,
                 LEVELS_ENDPOINT,
                 "levels",
                 {"limit": PAGE_SIZE, "offset": offset},
-            )
+            ))
             for offset in range(base_offset, base_offset + window_size, PAGE_SIZE)
-        ))
+        ]
+        try:
+            pages = await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         reached_end = False
         for page in pages:
             for level in page:
                 level_id = level.get("id") if isinstance(level, dict) else None
                 if level_id is None or level_id in seen_ids:
-                    continue
+                    raise DemonlistAPIError('Invalid or repeated level ID in paginated response')
                 seen_ids.add(level_id)
                 levels.append(level)
 
@@ -139,7 +152,17 @@ def _normalize_level(level: Dict[str, Any]):
 
 
 async def fetch_levels(progress_callback=None) -> int:
-    """Download every level page and atomically update the local cache."""
+    """One bounded level refresh at a time, shared by manual and hourly runs."""
+    if _update_lock.locked():
+        raise LevelUpdateBusy('Level update already running')
+    async with _update_lock:
+        try:
+            return await asyncio.wait_for(_update_levels(progress_callback), UPDATE_TIMEOUT)
+        except asyncio.TimeoutError as exc:
+            raise DemonlistAPIError('Level update exceeded the 120-second time limit') from exc
+
+
+async def _update_levels(progress_callback=None) -> int:
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             raw_levels = await _fetch_all_levels(session)
@@ -147,8 +170,9 @@ async def fetch_levels(progress_callback=None) -> int:
         levels = []
         for level in raw_levels:
             normalized = _normalize_level(level)
-            if normalized is not None:
-                levels.append(normalized)
+            if normalized is None:
+                raise DemonlistAPIError('API returned a level without required fields')
+            levels.append(normalized)
 
         if not levels:
             raise DemonlistAPIError("API returned no valid levels")

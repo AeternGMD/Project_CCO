@@ -42,9 +42,11 @@ class MySQLConnectionWrapper:
         sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
         sql = sql.replace('INSERT OR IGNORE', 'INSERT IGNORE')
 
-        cursor = await self.conn.cursor(aiomysql.DictCursor)
-        await cursor.executemany(sql, args)
-        return MySQLCursorWrapper(cursor)
+        async with self.conn.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.executemany(sql, args)
+
+    async def begin(self):
+        await self.conn.begin()
 
     async def commit(self):
         await self.conn.commit()

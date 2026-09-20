@@ -44,6 +44,7 @@ class ProfileTests(unittest.TestCase):
     def test_empty_profile_needs_no_navigation(self):
         text, markup = public.generate_player_profile_page(PLAYER, None, [], set())
         self.assertIn("Нет пройденных уровней", text)
+        self.assertIn("ID игрока в боте: @42", text)
         self.assertIsNone(markup)
 
     def test_long_unicode_lines_are_split_without_losing_text(self):

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import suppress
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
 from database.connection import init_db, init_connection, close_connection
@@ -41,9 +42,14 @@ async def main():
         await set_setting("restart_notify", "")
         
     logger.info("Starting bot polling...")
+    from services.level_scheduler import run_hourly_level_updates
+    update_task = asyncio.create_task(run_hourly_level_updates(), name='hourly-level-update')
     try:
         await dp.start_polling(bot)
     finally:
+        update_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await update_task
         await bot.session.close()
         await close_connection()
 

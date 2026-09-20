@@ -4,6 +4,16 @@ from database.connection import get_db_connection
 # --- Admin Operations ---
 
 _admins_cache = None
+_record_catalog_version = 0
+
+
+def invalidate_record_catalog():
+    global _record_catalog_version
+    _record_catalog_version += 1
+
+
+def get_record_catalog_version():
+    return _record_catalog_version
 
 async def is_admin(tg_id: int) -> bool:
     from config import ROOT_ID
@@ -45,6 +55,7 @@ async def add_player(nickname: str, demonlist_id: str, platform: str, location: 
         ''', (nickname, demonlist_id, platform, location, api_sync, contacts))
         await conn.commit()
     mark_leaderboard_dirty()
+    invalidate_record_catalog()
 
 async def get_player_by_nick(nickname: str) -> Optional[dict]:
     async with get_db_connection() as conn:
@@ -92,12 +103,14 @@ async def update_player(player_id: int, **kwargs):
         await conn.execute(f"UPDATE players SET {set_clause} WHERE id = ?", values)
         await conn.commit()
     mark_leaderboard_dirty()
+    invalidate_record_catalog()
 
 async def delete_player(player_id: int):
     async with get_db_connection() as conn:
         await conn.execute("DELETE FROM players WHERE id = ?", (player_id,))
         await conn.commit()
     mark_leaderboard_dirty()
+    invalidate_record_catalog()
 
 # --- Level Operations ---
 
@@ -121,6 +134,7 @@ def invalidate_level_caches():
     _ambiguous_names_cache = None
     _total_levels_cache = None
     mark_leaderboard_dirty()
+    invalidate_record_catalog()
 
 async def upsert_level(level_id: int, level_name: str, position: int, creator: str = "Unknown", ingame_id: Optional[int] = None):
     async with get_db_connection() as conn:
@@ -137,12 +151,14 @@ async def upsert_level(level_id: int, level_name: str, position: int, creator: s
     invalidate_level_caches()
 
 async def upsert_levels(levels: List[tuple]):
-    """Insert or update a complete batch of cached levels in one DB round trip."""
+    """Write the complete batch in a transaction, even with pool autocommit."""
     if not levels:
         return
 
     async with get_db_connection() as conn:
-        await conn.executemany('''
+        await conn.begin()
+        try:
+            await conn.executemany('''
             INSERT INTO levels_cache (level_id, level_name, position, creator, ingame_id)
             VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
@@ -150,8 +166,11 @@ async def upsert_levels(levels: List[tuple]):
                 position=VALUES(position),
                 creator=VALUES(creator),
                 ingame_id=VALUES(ingame_id)
-        ''', levels)
-        await conn.commit()
+            ''', levels)
+            await conn.commit()
+        except BaseException:
+            await conn.rollback()
+            raise
     invalidate_level_caches()
 
 async def get_ambiguous_level_names() -> set:
