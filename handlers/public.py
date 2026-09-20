@@ -5,6 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
+from aiogram.exceptions import TelegramBadRequest
+from utils.profile_pages import split_profile_text
 from services.calculator import get_leaderboard
 from database.models import get_player_by_nick, get_player_records, get_levels_by_name, get_level_by_id
 
@@ -20,6 +22,10 @@ class LvlCallback(CallbackData, prefix="lvl"):
 class TopCallback(CallbackData, prefix="top"):
     page: int
     filter_type: str
+
+class ProfileCallback(CallbackData, prefix="profile"):
+    player_id: int
+    page: int
 
 def filter_best_progresses(progresses, group_by_key='level_id'):
     from collections import defaultdict
@@ -277,7 +283,6 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
     
     completions = [r for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
     completions.sort(key=lambda x: x['position'])
-    top_5 = completions[:5]
     
     progresses = [r for r in records if not (r['progress_start'] == 0 and r['progress_end'] == 100)]
     progresses = filter_best_progresses(progresses, 'level_id')
@@ -288,11 +293,11 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
     text += f"Платформа: {player['platform']}\nГород: {loc_str}\n"
     text += f"Средний балл: {score_str}\nМесто в топе: {place_str}\n\n"
     
-    text += "🔥 Топ-5 уровней:\n"
-    if not top_5:
+    text += f"🏆 Пройденные уровни ({len(completions)}):\n"
+    if not completions:
         text += "- Нет пройденных уровней.\n"
     else:
-        for i, c in enumerate(top_5, 1):
+        for i, c in enumerate(completions, 1):
             name = c['level_name']
             if name.lower() in ambiguous_names:
                 name += f" [{dict(c).get('creator', 'Unknown')}]"
@@ -319,6 +324,61 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
             
     return text
 
+def generate_player_profile_page(player, entry, records, ambiguous_names, page=1):
+    pages = split_profile_text(
+        generate_player_profile_text(player, entry, records, ambiguous_names)
+    )
+    page = max(1, min(page, len(pages)))
+    text = pages[page - 1]
+    if len(pages) == 1:
+        return text, None
+
+    text += f"\n\n📄 Страница {page}/{len(pages)}"
+    builder = InlineKeyboardBuilder()
+    if page > 1:
+        builder.button(
+            text="⬅️ Назад",
+            callback_data=ProfileCallback(player_id=player['id'], page=page - 1).pack(),
+        )
+    if page < len(pages):
+        builder.button(
+            text="Вперёд ➡️",
+            callback_data=ProfileCallback(player_id=player['id'], page=page + 1).pack(),
+        )
+    builder.adjust(2)
+    return text, builder.as_markup()
+
+
+@router.callback_query(ProfileCallback.filter())
+async def cb_profile(query: CallbackQuery, callback_data: ProfileCallback):
+    from database.models import get_player_by_id, get_ambiguous_level_names
+
+    player = await get_player_by_id(callback_data.player_id)
+    if not player:
+        await query.answer("❌ Игрок не найден.", show_alert=True)
+        return
+
+    await query.answer()
+    lb = await get_leaderboard()
+    entry = next((item for item in lb if item['player']['id'] == player['id']), None)
+    records = await get_player_records(player['id'])
+    ambiguous_names = await get_ambiguous_level_names()
+    text, markup = generate_player_profile_page(
+        player, entry, records, ambiguous_names, callback_data.page
+    )
+    try:
+        if query.inline_message_id:
+            await query.bot.edit_message_text(
+                text, inline_message_id=query.inline_message_id,
+                reply_markup=markup, parse_mode=None,
+            )
+        elif isinstance(query.message, Message):
+            await query.message.edit_text(text, reply_markup=markup, parse_mode=None)
+    except TelegramBadRequest as exc:
+        if "message is not modified" not in str(exc).lower():
+            raise
+
+
 @router.message(Command("player", "profile", "p", ignore_case=True))
 async def cmd_profile(message: Message):
     args = message.text.split(maxsplit=1)
@@ -344,8 +404,8 @@ async def cmd_profile(message: Message):
     from database.models import get_ambiguous_level_names
     ambiguous_names = await get_ambiguous_level_names()
     
-    text = generate_player_profile_text(player, entry, records, ambiguous_names)
-    await message.answer(text)
+    text, markup = generate_player_profile_page(player, entry, records, ambiguous_names)
+    await message.answer(text, reply_markup=markup, parse_mode=None)
 
 @router.message(Command("lvl", "level", ignore_case=True))
 async def cmd_level(message: Message):

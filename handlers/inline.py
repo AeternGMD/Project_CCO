@@ -17,13 +17,13 @@ async def inline_search(inline_query: InlineQuery):
     lb = await get_leaderboard() if players else []
     ambiguous_names = await get_ambiguous_level_names()
     
-    from handlers.public import generate_player_profile_text, generate_level_info_text
+    from handlers.public import generate_player_profile_page, generate_level_info_text
     
     for player in players:
         entry = next((item for item in lb if item['player']['id'] == player['id']), None)
         records = await get_player_records(player['id'])
         
-        text = generate_player_profile_text(player, entry, records, ambiguous_names)
+        text, markup = generate_player_profile_page(player, entry, records, ambiguous_names)
         
         result_id = hashlib.md5(f"player_{player['id']}".encode()).hexdigest()
         score_str = f"{entry['score']:.2f}" if entry else "0"
@@ -34,7 +34,8 @@ async def inline_search(inline_query: InlineQuery):
                 id=result_id,
                 title=f"👤 Игрок: {player['nickname']}",
                 description=desc,
-                input_message_content=InputTextMessageContent(message_text=text)
+                input_message_content=InputTextMessageContent(message_text=text, parse_mode=None),
+                reply_markup=markup,
             )
         )
         
