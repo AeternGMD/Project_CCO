@@ -13,6 +13,7 @@ from services.calculator import get_leaderboard, calculate_progress_eligibility
 from services.demonlist_api import DemonlistAPIError, fetch_levels, sync_player_records
 from services.notifications import send_record_notification
 from config import DB_PATH
+from utils.record_command import parse_record_command
 
 router = Router()
 router.message.filter(AdminFilter())
@@ -146,54 +147,27 @@ async def cmd_edit_player(message: Message):
     await update_player(player['id'], **update_data)
     await message.answer(f"✅ Профиль {nick} обновлен.")
 
-def parse_progress(prog_str: str):
-    prog_str = prog_str.replace('%', '')
-    if '-' in prog_str:
-        start, end = prog_str.split('-')
-        return int(start), int(end)
-    return 0, int(prog_str)
-
 @router.message(Command("record", "r", ignore_case=True))
 async def cmd_record(message: Message):
-    import shlex
     try:
-        args = shlex.split(message.text)
+        nick, actions = parse_record_command(message.text)
     except ValueError:
-        args = message.text.split()
-        
-    if len(args) < 3:
-        await message.answer("Использование: /record [\"Ник\"] [\"Название_или_ID\"] [Прогресс]\n"
-                             "Прогресс не обязателен для 100%.\n"
-                             "Примеры:\n"
-                             "/record \"f f i z z\" \"Bloodlust\" 100\n"
-                             "/record Player1 Tidal")
+        await message.answer(
+            "❌ Неверный формат команды.\n"
+            "Один уровень: /r player \"Tidal Wave\" 100\n"
+            "Прогрессы: /r player Bloodbath 60 | 40-100\n"
+            "Несколько прохождений: /r player Tidal Wave, Bloodbath, Sonic Wave\n\n"
+            "Список через запятую зачисляет каждый уровень на 100%. "
+            "Ник с пробелами берите в кавычки; пустые элементы списка недопустимы."
+        )
         return
-        
-    nick = args[1]
-    level_query = args[2]
-    
-    progress_str = " ".join(args[3:]) if len(args) >= 4 else "100"
-    
-    progresses = []
-    try:
-        for p_str in progress_str.split('|'):
-            p_str = p_str.strip()
-            if not p_str: continue
-            progresses.append(parse_progress(p_str))
-    except ValueError:
-        await message.answer("❌ Ошибка: неверный формат прогресса. Если ник или уровень содержит пробелы, оберните их в кавычки!\n"
-                             "Пример: /record \"f f i z z\" \"Bloodlust\" 100 | 50-70")
-        return
-        
-    if not progresses:
-        progresses.append((0, 100))
         
     player = await get_player_by_nick(nick)
     if not player:
         await message.answer("❌ Игрок не найден.")
         return
         
-    for p_start, p_end in progresses:
+    for level_query, p_start, p_end in actions:
         await handle_level_query(message, player['id'], level_query, "add", p_start, p_end)
 
 @router.message(Command("del_record", "dr", ignore_case=True))
@@ -229,7 +203,7 @@ async def handle_level_query(message: Message, player_id: int, query: str, actio
         levels = await get_levels_by_name(query)
         
     if not levels:
-        await message.answer("❌ Уровень не найден в кэше.")
+        await message.answer(f"❌ Уровень «{query}» не найден в кэше.")
         return
         
     if len(levels) == 1:
@@ -249,9 +223,9 @@ async def handle_level_query(message: Message, player_id: int, query: str, actio
             builder.append([InlineKeyboardButton(text=f"Топ-{lvl['position']} - {lvl['level_name']} [{creator_str}]", callback_data=cb_data)])
         
         kb = InlineKeyboardMarkup(inline_keyboard=builder)
-        await message.answer("Найдено уровней с таким названием: ", reply_markup=kb)
+        await message.answer(f"Найдено несколько уровней «{query}». Выберите нужный:", reply_markup=kb)
 
-@router.callback_query(RecordCallback.filter())
+@router.callback_query(RecordCallback.filter(), AdminFilter())
 async def cb_record_action(query: CallbackQuery, callback_data: RecordCallback, bot: Bot):
     await process_record_action(
         query.message, 
