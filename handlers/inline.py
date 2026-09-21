@@ -26,8 +26,8 @@ async def inline_search(inline_query: InlineQuery):
         text, markup = generate_player_profile_page(player, entry, records, ambiguous_names)
         
         result_id = hashlib.md5(f"player_{player['id']}".encode()).hexdigest()
-        score_str = f"{entry['score']:.2f}" if entry else "0"
-        desc = f"Место: {entry['rank'] if entry else 'N/A'} | Балл: {score_str}"
+        score_str = f"{entry['score']:.2f}" if entry else "—"
+        desc = f"Место: {entry['rank'] if entry else 'вне рейтинга'} | Средний балл: {score_str}"
         
         results.append(
             InlineQueryResultArticle(

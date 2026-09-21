@@ -36,7 +36,7 @@ async def main():
     notify_id = await get_setting("restart_notify")
     if notify_id:
         try:
-            await bot.send_message(chat_id=int(notify_id), text="✅ Бот успешно перезапущен и готов к работе!")
+            await bot.send_message(chat_id=int(notify_id), text="✅ Бот перезапущен. Можно продолжать.")
         except Exception as e:
             logger.error(f"Failed to send restart notification: {e}")
         await set_setting("restart_notify", "")

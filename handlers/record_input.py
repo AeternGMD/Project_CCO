@@ -55,8 +55,9 @@ async def handle_record_command(message: Message, action='add'):
     try:
         plans = resolve_record_command(message.text, catalog, action)
     except ValueError as exc:
-        await message.answer(f'❌ {exc}\n\nПример: /r Mr Spaced: Tidal Wave, Bloodbath\n'
-                             'Прогресс: /r Mr Spaced: Tidal Wave = 60%')
+        example = '/r Mr Spaced: Tidal Wave, Bloodbath' if action == 'add' else '/dr Mr Spaced: Tidal Wave, Bloodbath'
+        help_command = '/help r' if action == 'add' else '/help dr'
+        await message.answer(f'{exc}\n\nПример: {example}\nПодробнее: {help_command}', parse_mode=None)
         return
     work = PendingRecord(
         secrets.token_hex(6), message.from_user.id, message.chat.id, action,
@@ -72,7 +73,7 @@ async def advance(message, work, edit=False):
         work.group_index = -1
         work.choices = work.plans
         labels = [f'@{p.player_id} {p.nickname[:40]}: {p.groups[0][0].label}' for p in work.plans]
-        prompt = 'Нашлось несколько разборов команды. Выберите игрока и первый уровень:'
+        prompt = 'Команду можно понять по-разному. Выберите игрока и первый уровень:'
     else:
         for index, options in enumerate(work.plan.groups):
             if len(options) == 1:
@@ -87,10 +88,10 @@ async def advance(message, work, edit=False):
         prompt = (f'Игрок: {work.plan.nickname}. Уточните {verb} '
                   f'для уровня {work.group_index + 1}/{len(work.plan.groups)}:')
 
-    # Full descriptions live in the message; short numeric buttons never hide
-    # the distinguishing ID/progress behind Telegram's button-label clipping.
+    # Descriptions include placement/progress; short numeric buttons identify
+    # options without relying on Telegram's button-label clipping.
     text = prompt + '\n\n' + '\n'.join(f'{i}. {label[:75]}' for i, label in enumerate(labels, 1))
-    text += '\n\nДо завершения выбора ничего не записывается. Выбор действует 5 минут.'
+    text += '\n\nДо завершения выбора рекорды не меняются. Выбрать может автор команды в течение 5 минут.'
     builder = InlineKeyboardBuilder()
     for i in range(len(labels)):
         builder.button(text=str(i + 1), callback_data=RecordChoice(token=work.token, index=i).pack())
@@ -109,11 +110,11 @@ async def choose_record(query: CallbackQuery, callback_data: RecordChoice):
     work = _pending.get(callback_data.token)
     if work is None or work.expires <= time.monotonic():
         _pending.pop(callback_data.token, None)
-        await query.answer('Выбор устарел. Повторите команду.', show_alert=True)
+        await query.answer('Время выбора истекло или команда уже обработана. Отправьте её заново.', show_alert=True)
         return
     if (query.from_user.id != work.owner_id or not isinstance(query.message, Message)
             or query.message.chat.id != work.chat_id or query.message.message_id != work.message_id):
-        await query.answer('Этот выбор относится к другой команде или администратору.', show_alert=True)
+        await query.answer('Эти кнопки доступны только автору исходной команды.', show_alert=True)
         return
     index = callback_data.index
     if index < -1 or index >= len(work.choices):
@@ -123,7 +124,7 @@ async def choose_record(query: CallbackQuery, callback_data: RecordChoice):
     _pending.pop(work.token)
     await query.answer()
     if index == -1:
-        await query.message.edit_text('Отменено. Ничего не записано.', reply_markup=None)
+        await query.message.edit_text('Отменено. Рекорды не изменены.', reply_markup=None)
         return
     if work.group_index == -1:
         work.plan = work.choices[index]
@@ -143,7 +144,7 @@ async def apply_plan(message, work, edit):
             or any(option.level_id not in catalog.levels_by_id
                    or catalog.levels_by_id[option.level_id]['level_name'] != option.name
                    for option in choices)):
-        await message.answer('Данные игроков или уровней изменились. Повторите команду; ничего не записано.')
+        await message.answer('Данные игроков или уровней изменились. Ничего не изменено этой командой; отправьте её заново.')
         return
     if edit:
         await message.edit_text('Выбор завершён. Обрабатываю команду…', reply_markup=None)

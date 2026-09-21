@@ -24,7 +24,7 @@ async def get_record_catalog():
             players = await conn.execute('SELECT id, nickname FROM players')
             players = await players.fetchall()
             levels = await conn.execute(
-                'SELECT level_id, level_name, creator FROM levels_cache'
+                'SELECT level_id, level_name, creator, position FROM levels_cache'
             )
             levels = await levels.fetchall()
         _catalog = RecordCatalog(players, levels)

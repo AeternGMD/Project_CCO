@@ -53,12 +53,14 @@ class RecordOption:
     name: str
     creator: str
     progresses: tuple
+    position: int | None = None
 
     @property
     def label(self):
         progress = ' | '.join(f'{start}-{end}%' if start else f'{end}%'
                               for start, end in self.progresses)
-        return f'#{self.level_id} {progress} — {self.name} [{self.creator}]'
+        place = f'Топ-{self.position} · ' if self.position is not None else ''
+        return f'{place}{progress} — {self.name} [{self.creator}]'
 
 
 @dataclass
@@ -87,16 +89,9 @@ class RecordCatalog:
 
     def levels(self, tokens):
         text = joined(tokens)
-        if re.fullmatch(r'#\d+', text):
-            level = self.levels_by_id.get(int(text[1:]))
-            return [level] if level else []
-        matches = list(self.levels_by_name.get(key(text), []))
-        # A bare number may be a level name or an old-style Demonlist ID.
-        if text.isdigit() and not any(t.quoted for t in tokens):
-            level = self.levels_by_id.get(int(text))
-            if level and level not in matches:
-                matches.append(level)
-        return matches
+        # Numbers are names, never IDs. Internal IDs are only used after
+        # resolving a name (or selecting a disambiguation button).
+        return list(self.levels_by_name.get(key(text), []))
 
 
 def progresses(tokens):
@@ -122,7 +117,8 @@ def level_options(tokens, catalog, action):
     def append(level_tokens, runs):
         for level in catalog.levels(level_tokens):
             option = RecordOption(level['level_id'], level['level_name'],
-                                  level.get('creator') or 'Unknown', runs)
+                                  level.get('creator') or 'Автор не указан', runs,
+                                  level.get('position'))
             if option not in options:
                 options.append(option)
 
@@ -144,7 +140,7 @@ def level_options(tokens, catalog, action):
                     continue
                 append(tokens[:i], runs)
     if len(options) > 20:
-        raise ValueError('Слишком много совпадений. Укажите уровень через #ID Demonlist.')
+        raise ValueError('Слишком много совпадений. Уточните полное название уровня; если оно повторяется, обратитесь к администратору.')
     return options
 
 
@@ -153,7 +149,7 @@ def resolve_record_command(text, catalog, action='add'):
         raise ValueError('Команда слишком длинная.')
     body = text.split(maxsplit=1)
     if len(body) < 2:
-        raise ValueError('Укажите игрока и уровни: /r Mr Spaced: Tidal Wave, Bloodbath')
+        raise ValueError('Укажите ник и названия уровней через запятую.')
     tokens = tokenize(body[1])
     colon = next((i for i, t in enumerate(tokens) if separator(t, ':')), None)
     candidates = []
@@ -193,12 +189,12 @@ def resolve_record_command(text, catalog, action='add'):
     if not plans:
         if missing:
             names = ', '.join(sorted(missing))[:700]
-            raise ValueError(f'Не найдены уровни или неверен прогресс: {names}. '
-                             'Ничего не записано. Уточните границу через «ник: уровень» '
-                             'и прогресс через «= 60%».')
-        raise ValueError('Игрок не найден. Используйте /r ник: уровень или /r @ID: #ID.')
+            hint = ' Проценты указывайте после =, например: = 60%.' if action == 'add' else ''
+            raise ValueError(f'Проверьте названия уровней: {names}. '
+                             'Используйте названия, не ID Demonlist. Ничего не изменено.' + hint)
+        raise ValueError('Игрок не найден. Отделите ник двоеточием: ник: название уровня.')
     if len(plans) > 20:
         raise ValueError('Слишком много вариантов. Уточните игрока через «ник:» или @ID.')
     if sum(len(group) for plan in plans for group in plan.groups) > 200:
-        raise ValueError('Слишком много совпадений в списке. Используйте @ID игрока и #ID уровней.')
+        raise ValueError('Слишком много совпадений. Разделите список на несколько команд и укажите полные названия.')
     return plans

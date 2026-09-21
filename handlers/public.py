@@ -1,12 +1,13 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 from aiogram.exceptions import TelegramBadRequest
 from utils.profile_pages import split_profile_text
+from utils.display import platform_label
 from services.calculator import get_leaderboard
 from database.models import get_player_by_nick, get_player_records, get_levels_by_name, get_level_by_id
 
@@ -53,118 +54,23 @@ router = Router()
 async def cmd_start(message: Message):
     from database.models import is_admin
     from config import ROOT_ID
-    
+    from utils.command_help import command_help, help_overview
+
+    access = dict(admin=await is_admin(message.from_user.id),
+                  root=message.from_user.id == ROOT_ID)
     args = message.text.split(maxsplit=1)
-    if len(args) > 1:
-        cmd = args[1].lower().strip('/')
-        
-        public_help = {
-            ('try',): "ℹ️ <b>Справка по команде /try</b>\n\nСимулятор прогресса: позволяет рассчитать, какие баллы получит игрок, если пройдет указанные уровни.\n\n📌 <b>Как использовать:</b>\n• Для своего привязанного аккаунта:\n  <code>/try me Bloodbath, Tartarus</code>\n  <i>(Или: <code>/try \"Bloodbath, Tartarus\"</code>)</i>\n\n• Для другого игрока:\n  <code>/try Kwikzy Bloodbath, Tartarus</code>\n  <i>(Если ник с пробелами: <code>/try \"Mr Spaced\" Bloodbath</code>)</i>",
-            ('profile', 'p'): "ℹ️ <b>Справка по команде /profile</b>\n\nПоказывает статистику, баллы и прохождения игрока.\n\n📌 <b>Как использовать:</b>\n• Если ваш аккаунт привязан:\n  <code>/p</code> или <code>/p me</code>\n\n• Для другого игрока:\n  <code>/p Kwikzy</code> или <code>/p \"Mr Spaced\"</code>",
-            ('lvlp', 'lp'): "ℹ️ <b>Справка по команде /lvlp</b>\n\nПоказывает уровни на заданных местах.\n\n📌 <b>Как использовать:</b>\n  <code>/lvlp 1</code> — покажет Топ-1 уровень\n  <code>/lvlp 1-10</code> — покажет уровни с 1 по 10 место (макс. 30 за раз).",
-            ('top', 't'): "ℹ️ <b>Справка по команде /top</b>\n\nВыводит общий топ игроков.\n\n📌 <b>Использование:</b>\n  <code>/top</code>",
-            ('top_mobile', 'tm'): "ℹ️ <b>Справка по команде /top_mobile</b>\n\nВыводит топ игроков, играющих с телефона.\n\n📌 <b>Использование:</b>\n  <code>/top_mobile</code>",
-            ('top_location', 'tl'): "ℹ️ <b>Справка по команде /top_location</b>\n\nВыводит топ игроков из конкретного города.\n\n📌 <b>Использование:</b>\n  <code>/top_location [Город]</code>\n  Пример: <code>/tl Москва</code>",
-            ('level', 'lvl'): "ℹ️ <b>Справка по команде /level</b>\n\nПоказывает информацию об уровне (позиция, создатель, викторы).\n\n📌 <b>Использование:</b>\n  <code>/level [Название]</code>\n  Пример: <code>/lvl Tartarus</code>"
-        }
-        
-        admin_help = {
-            ('record', 'r'): (
-                "ℹ️ <b>/record — зачисление без обязательных кавычек</b>\n\n"
-                "<code>/r Mr Spaced Theory of Everything 2</code>\n"
-                "<code>/r Mr Spaced: Tidal Wave, Bloodbath</code>\n"
-                "<code>/r Mr Spaced: Tidal Wave = 60% | 40-100</code>\n\n"
-                "Без прогресса зачисляется 100%. Двоеточие отделяет ник, знак = — прогресс. "
-                "Старый ввод с кавычками и процентами тоже работает.\n\n"
-                "Если подходят несколько игроков, уровней или вариантов прочтения цифр, "
-                "бот предложит кнопки. До завершения выбора записей нет. "
-                "Выбирать может только автор команды, в течение 5 минут.\n\n"
-                "<code>/r @42: #1537</code> — точные ID: @ — внутренний ID игрока в боте "
-                "(не Telegram ID), # — ID Demonlist (не игровой ID). "
-                "Они также подходят для названий с запятыми или двоеточием.\n\n"
-                "До 100 уровней за команду. Если имя не найдено, исправьте команду: "
-                "частично она не зачисляется."
-            ),
-            ('add_player', 'ap'): "ℹ️ <b>Справка по команде /add_player (Админ)</b>\n\nДобавляет нового игрока в базу.\n\n📌 <b>Использование:</b>\n  <code>/add_player [\"Ник\"] [ID_Демонлиста_или_-] [pc/mobile] [\"Город\"] [1_или_0]</code>\n  Пример: <code>/ap \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1</code>",
-            ('edit_player', 'ep'): "ℹ️ <b>Справка по команде /edit_player (Админ)</b>\n\nРедактирует поля игрока (platform, location, api_sync, contacts, demonlist_id, nickname).\n\n📌 <b>Использование:</b>\n  <code>/edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]</code>\n  Пример: <code>/ep Kwikzy location \"Нижний Тагил\"</code>",
-            ('del_player', 'dp'): "ℹ️ <b>Справка по команде /del_player (Админ)</b>\n\nПолностью удаляет игрока и все его рекорды.\n\n📌 <b>Использование:</b>\n  <code>/del_player [Ник]</code>",
-            ('del_record', 'dr'): "ℹ️ <b>Справка по команде /del_record (Админ)</b>\n\nУдаляет рекорды на указанных уровнях. Кавычки необязательны, при неоднозначности появится выбор.\n\n<code>/dr Mr Spaced: Theory of Everything 2</code>\n<code>/dr Mr Spaced: Tidal Wave, Bloodbath</code>\n<code>/dr @42: #1537</code>",
-            ('link',): "ℹ️ <b>Справка по команде /link (Админ)</b>\n\nПривязывает Telegram ID к профилю игрока.\n\n📌 <b>Использование:</b>\n  <code>/link [Ник] [Telegram ID]</code>",
-            ('unlink',): "ℹ️ <b>Справка по команде /unlink (Админ)</b>\n\nОтвязывает Telegram аккаунт от профиля.\n\n📌 <b>Использование:</b>\n  <code>/unlink [Ник]</code>",
-            ('ban', 'b'): "ℹ️ <b>Справка по команде /ban (Админ)</b>\n\nБанит пользователя в боте по его Telegram ID.\n\n📌 <b>Использование:</b>\n  <code>/ban [Telegram ID] [Дней] [Причина]</code>\n  Пример: <code>/ban 123456789 30 Спам</code>",
-            ('unban', 'ub'): "ℹ️ <b>Справка по команде /unban (Админ)</b>\n\nСнимает бан с пользователя.\n\n📌 <b>Использование:</b>\n  <code>/unban [Telegram ID]</code>",
-            ('info_update', 'iu'): "ℹ️ <b>Справка по команде /info_update (Админ)</b>\n\nВручную обновляет уровни и синхронизирует профили игроков.\n\n<code>/info_update</code>\n\nУровни также обновляются автоматически раз в час после запуска бота, без сообщений в Telegram. Одновременные обновления не запускаются.",
-            ('backup', 'bkp'): "ℹ️ <b>Справка по команде /backup (Админ)</b>\n\nСкачивает текущую базу данных <code>database.db</code> в чат.\n\n📌 <b>Использование:</b>\n  <code>/backup</code>",
-            ('restore', 'rst'): "ℹ️ <b>Справка по команде /restore (Админ)</b>\n\nВосстанавливает базу данных. Используется ответом (Reply) на сообщение с файлом <code>database.db</code>.\n\n📌 <b>Использование:</b>\n  <code>/restore</code>",
-            ('toggle_notifications', 'tn'): "ℹ️ <b>Справка по команде /toggle_notifications (Админ)</b>\n\nВключает или выключает рассылку в канал о новых прохождениях.\n\n📌 <b>Использование:</b>\n  <code>/toggle_notifications</code>",
-            ('restart', 'res'): "ℹ️ <b>Справка по команде /restart (Админ)</b>\n\nПерезапускает бота.\n\n📌 <b>Использование:</b>\n  <code>/restart</code>"
-        }
-        
-        for keys, text in public_help.items():
-            if cmd in keys:
-                await message.answer(text, parse_mode="HTML")
-                return
-                
-        if await is_admin(message.from_user.id):
-            for keys, text in admin_help.items():
-                if cmd in keys:
-                    await message.answer(text, parse_mode="HTML")
-                    return
-            await message.answer("❌ Подробной справки для этой команды пока нет (или неверное имя команды). Введите `/help` для общего списка.")
-        else:
-            await message.answer("❌ Команда не найдена или у вас нет к ней доступа. Введите `/help` для общего списка.")
-        return
-    
-    text = (
-        "👋 Привет! Я бот для ведения топа игроков Geometry Dash.\n\n"
-        "💡 _Совет: Напишите `/help [команда]` (например, `/help try`), чтобы узнать подробности._\n\n"
-        "👥 Доступные публичные команды:\n"
-        "/top (или /t) - Общий топ игроков\n"
-        "/top_mobile (или /tm) - Топ мобильных игроков\n"
-        "/top_location (или /tl) - Топ по городу\n"
-        "/profile (или /p) - Профиль игрока\n"
-        "/level (или /lvl) - Информация об уровне\n"
-        "/lvlp (или /lp) - Уровни по месту\n"
-        "/try - Симулятор прогресса\n"
-    )
-    
-    if await is_admin(message.from_user.id):
-        text += (
-            "\n🛡 Админские команды:\n"
-            "/add_player (или /ap) - Добавить игрока\n"
-            "/edit_player (или /ep) - Изменить профиль\n"
-            "/del_player (или /dp) - Удалить игрока\n"
-            "/record (или /r) - Добавить рекорд\n"
-            "/del_record (или /dr) - Удалить рекорд\n"
-            "/link - Привязать Telegram ID\n"
-            "/unlink - Отвязать Telegram ID\n"
-            "/ban (или /b) - Выдать бан\n"
-            "/unban (или /ub) - Снять бан\n"
-            "/info_update (или /iu) - Синхронизировать с Demonlist\n"
-            "/backup (или /bkp) - Скачать БД\n"
-            "/restore (или /rst) - Восстановить БД\n"
-            "/toggle_notifications (или /tn) - Уведомления\n"
-            "/restart (или /res) - Перезапустить бота\n"
-        )
-        
-    if message.from_user.id == ROOT_ID:
-        text += (
-            "\n👑 Команды владельца:\n"
-            "/add_admin - Назначить администратора\n"
-            "/del_admin - Снять администратора"
-        )
-        
-    await message.answer(text)
+    text = command_help(args[1].strip(), **access) if len(args) > 1 else help_overview(**access)
+    await message.answer(text, parse_mode="HTML")
 
 async def send_leaderboard(message_or_query, leaderboard: list, title: str, filter_type: str, page: int = 1):
     if not leaderboard:
         if hasattr(message_or_query, 'message'):
             try:
-                await message_or_query.message.edit_text(f"{title}\n\nТоп пуст.")
+                await message_or_query.message.edit_text(f"{title}\n\nВ этом рейтинге пока нет игроков с прохождениями.")
             except Exception:
                 pass
         else:
-            await message_or_query.answer(f"{title}\n\nТоп пуст.")
+            await message_or_query.answer(f"{title}\n\nВ этом рейтинге пока нет игроков с прохождениями.")
         return
         
     per_page = 15
@@ -178,7 +84,7 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
     end_idx = start_idx + per_page
     page_data = leaderboard[start_idx:end_idx]
     
-    text = f"🏆 {title} (Страница {page}/{total_pages})\n\n"
+    text = f"🏆 {title} · {page}/{total_pages}\n\n"
     
     from database.models import get_ambiguous_level_names, get_players_records
     ambiguous_names = await get_ambiguous_level_names()
@@ -188,7 +94,7 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
     
     for entry in page_data:
         p = entry['player']
-        loc_str = "Неизвестно" if p['location'] == "-" else p['location']
+        loc_str = "Не указан" if p['location'] == "-" else p['location']
         text += f"{entry['rank']}. {p['nickname']} | {loc_str} | Ср. балл: {entry['score']:.2f}\n"
         
         records = records_by_player.get(p['id'], [])
@@ -207,7 +113,7 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
                 if name.lower() in ambiguous_names:
                     name += f" [{dict(c).get('creator', 'Unknown')}]"
                 hardest_texts.append(name)
-            text += "   ⚔️ Хардесты: " + ", ".join(hardest_texts) + "\n"
+            text += "   ⚔️ Самые сложные: " + ", ".join(hardest_texts) + "\n"
             
         if progresses:
             from collections import defaultdict
@@ -223,14 +129,14 @@ async def send_leaderboard(message_or_query, leaderboard: list, title: str, filt
             prog_texts = []
             for lvl_name, p_list in list(grouped_progs.items())[:3]:
                 prog_texts.append(f"{lvl_name} {' | '.join(p_list)}")
-            text += f"   📈 Достойные прогрессы: {', '.join(prog_texts)}\n"
+            text += f"   📈 Прогресс: {', '.join(prog_texts)}\n"
         text += "\n"
         
     builder = InlineKeyboardBuilder()
     if page > 1:
         builder.button(text="⬅️ Назад", callback_data=TopCallback(page=page-1, filter_type=filter_type[:50]).pack())
     if page < total_pages:
-        builder.button(text="Вперед ➡️", callback_data=TopCallback(page=page+1, filter_type=filter_type[:50]).pack())
+        builder.button(text="Вперёд ➡️", callback_data=TopCallback(page=page+1, filter_type=filter_type[:50]).pack())
     builder.adjust(2)
     
     markup = builder.as_markup() if total_pages > 1 else None
@@ -250,14 +156,14 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
     
     if ftype == "all":
         lb = await get_leaderboard()
-        title = "Общий топ"
+        title = "Общий рейтинг"
     elif ftype == "mob":
         lb = await get_leaderboard(filter_platform="mob")
-        title = "Топ мобильных игроков"
+        title = "Рейтинг мобильных игроков"
     elif ftype.startswith("loc="):
         loc = ftype[4:]
         lb = await get_leaderboard(filter_location=loc)
-        title = f"Топ по городу: {loc}"
+        title = f"Рейтинг по городу: {loc}"
     else:
         return
         
@@ -270,31 +176,31 @@ async def cb_top(query: CallbackQuery, callback_data: TopCallback):
 @router.message(Command("top", "t", ignore_case=True))
 async def cmd_top(message: Message):
     lb = await get_leaderboard()
-    await send_leaderboard(message, lb, "Общий топ", "all")
+    await send_leaderboard(message, lb, "Общий рейтинг", "all")
 
 @router.message(Command("top_mobile", "tm", ignore_case=True))
 async def cmd_top_mobile(message: Message):
     lb = await get_leaderboard(filter_platform="mob")
-    await send_leaderboard(message, lb, "Топ мобильных игроков", "mob")
+    await send_leaderboard(message, lb, "Рейтинг мобильных игроков", "mob")
 
 @router.message(Command("top_location", "tl", ignore_case=True))
 async def cmd_top_location(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /top_location [Город]")
+        await message.answer("Укажите город: /tl Москва\nС пробелами — без кавычек: /tl Нижний Тагил")
         return
         
     location = args[1]
     if location == "-" or location.lower() == "неизвестно":
-        await message.answer("❌ Для неизвестных городов топ не формируется.")
+        await message.answer("Укажите город из профиля игрока, например: /tl Москва.")
         return
         
     lb = await get_leaderboard(filter_location=location)
-    await send_leaderboard(message, lb, f"Топ по городу: {location}", f"loc={location}")
+    await send_leaderboard(message, lb, f"Рейтинг по городу: {location}", f"loc={location}")
 
-def generate_player_profile_text(player, entry, records, ambiguous_names):
-    score_str = f"{entry['score']:.2f}" if entry else "N/A"
-    place_str = f"{entry['rank']}" if entry else "Вне топа (нет прохождений)"
+def generate_player_profile_text(player, entry, records, ambiguous_names, *, expanded=False):
+    score_str = f"{entry['score']:.2f}" if entry else "—"
+    place_str = f"{entry['rank']}" if entry else "Вне рейтинга — нет прохождений"
     
     completions = [r for r in records if r['progress_start'] == 0 and r['progress_end'] == 100]
     completions.sort(key=lambda x: x['position'])
@@ -304,25 +210,28 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
     progresses.sort(key=lambda x: x['position'])
     
     text = f"👤 Профиль {player['nickname']}\n"
-    text += f"ID игрока в боте: @{player['id']}\n"
-    loc_str = "Неизвестно" if player['location'] == "-" else player['location']
-    text += f"Платформа: {player['platform']}\nГород: {loc_str}\n"
-    text += f"Средний балл: {score_str}\nМесто в топе: {place_str}\n\n"
+    loc_str = "Не указан" if player['location'] == "-" else player['location']
+    text += f"Платформа: {platform_label(player['platform'])}\nГород: {loc_str}\n"
+    text += f"Средний балл: {score_str}\nМесто в рейтинге: {place_str}\n\n"
     
-    text += f"🏆 Пройденные уровни ({len(completions)}):\n"
+    text += f"🏆 Пройдено уровней: {len(completions)}\n"
+    if completions:
+        text += "Все прохождения:\n" if expanded else "Самые сложные — топ-5:\n"
     if not completions:
-        text += "- Нет пройденных уровней.\n"
+        text += "Пока нет прохождений.\n"
     else:
-        for i, c in enumerate(completions, 1):
+        for i, c in enumerate(completions if expanded else completions[:5], 1):
             name = c['level_name']
             if name.lower() in ambiguous_names:
                 name += f" [{dict(c).get('creator', 'Unknown')}]"
+            if not expanded and len(name) > 120:
+                name = name[:119] + "…"
             
-            status_text = "Подтверждено" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
-            text += f"{i}. {name} (Топ-{c['position']}) - {status_text}\n"
+            status_text = "Подтверждено Demonlist" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
+            text += f"{i}. {name} (Топ-{c['position']}) — {status_text}\n"
         
     if progresses:
-        text += "\n📈 Прогрессы:\n"
+        text += "\n📈 Прогресс:\n"
         from collections import defaultdict
         grouped_progs = defaultdict(list)
         for p in progresses:
@@ -335,20 +244,40 @@ def generate_player_profile_text(player, entry, records, ambiguous_names):
             if prog_str not in grouped_progs[(name, p['position'])]:
                 grouped_progs[(name, p['position'])].append(prog_str)
             
-        for (lvl_name, pos), p_list in grouped_progs.items():
+        shown_progresses = list(grouped_progs.items())
+        if not expanded:
+            shown_progresses = shown_progresses[:3]
+        for (lvl_name, pos), p_list in shown_progresses:
+            if not expanded:
+                lvl_name = lvl_name if len(lvl_name) <= 120 else lvl_name[:119] + "…"
+                p_list = p_list[:3] + (["…"] if len(p_list) > 3 else [])
             text += f"- {lvl_name} (Топ-{pos}) {' | '.join(p_list)}\n"
+        if not expanded and len(grouped_progs) > 3:
+            text += "Остальной прогресс — в полном списке.\n"
             
     return text
 
-def generate_player_profile_page(player, entry, records, ambiguous_names, page=1):
+def generate_player_profile_page(player, entry, records, ambiguous_names, page=0):
+    # Page 0 is the compact profile. Positive pages preserve old callback links
+    # and open the complete list, including the five hardest completions.
+    page = max(0, page)
+    if page == 0:
+        text = generate_player_profile_text(player, entry, records, ambiguous_names)
+        if not records:
+            return text, None
+        count = sum(r['progress_start'] == 0 and r['progress_end'] == 100 for r in records)
+        builder = InlineKeyboardBuilder()
+        builder.button(
+            text=f"Все прохождения ({count})" if count else "Весь прогресс",
+            callback_data=ProfileCallback(player_id=player['id'], page=1).pack(),
+        )
+        return text, builder.as_markup()
+
     pages = split_profile_text(
-        generate_player_profile_text(player, entry, records, ambiguous_names)
+        generate_player_profile_text(player, entry, records, ambiguous_names, expanded=True)
     )
     page = max(1, min(page, len(pages)))
     text = pages[page - 1]
-    if len(pages) == 1:
-        return text, None
-
     text += f"\n\n📄 Страница {page}/{len(pages)}"
     builder = InlineKeyboardBuilder()
     if page > 1:
@@ -362,6 +291,9 @@ def generate_player_profile_page(player, entry, records, ambiguous_names, page=1
             callback_data=ProfileCallback(player_id=player['id'], page=page + 1).pack(),
         )
     builder.adjust(2)
+    builder.row(InlineKeyboardButton(
+        text="К профилю", callback_data=ProfileCallback(player_id=player['id'], page=0).pack(),
+    ))
     return text, builder.as_markup()
 
 
@@ -371,7 +303,7 @@ async def cb_profile(query: CallbackQuery, callback_data: ProfileCallback):
 
     player = await get_player_by_id(callback_data.player_id)
     if not player:
-        await query.answer("❌ Игрок не найден.", show_alert=True)
+        await query.answer("Игрок не найден. Проверьте ник.", show_alert=True)
         return
 
     await query.answer()
@@ -404,13 +336,13 @@ async def cmd_profile(message: Message):
         from database.models import get_player_by_tg
         player = await get_player_by_tg(message.from_user.id)
         if not player:
-            await message.answer("❌ Ваш Telegram аккаунт не привязан к профилю. Укажите ник: /profile [Ник]")
+            await message.answer("Telegram ещё не привязан к профилю. Укажите ник: /p Mr Spaced.\nДля привязки обратитесь к администратору.")
             return
     else:
         nick = args[1]
         player = await get_player_by_nick(nick)
         if not player:
-            await message.answer("❌ Игрок не найден.")
+            await message.answer("Игрок не найден. Проверьте ник.")
             return
         
     lb = await get_leaderboard()
@@ -427,14 +359,14 @@ async def cmd_profile(message: Message):
 async def cmd_level(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /lvl [Название]")
+        await message.answer("Укажите название: /lvl Theory of Everything 2\nКавычки не нужны.")
         return
         
     query = args[1]
     levels = await get_levels_by_name(query)
         
     if not levels:
-        await message.answer("❌ Уровень не найден в кэше.")
+        await message.answer("Уровень не найден. Проверьте название; если его нет в базе, попросите администратора обновить список.")
         return
         
     if len(levels) > 1:
@@ -444,7 +376,7 @@ async def cmd_level(message: Message):
             cb_data = LvlCallback(level_id=l['level_id']).pack()
             builder.button(text=f"Топ-{l['position']} - {l['level_name']} [{creator_str}]", callback_data=cb_data)
         builder.adjust(1)
-        await message.answer("Найдено несколько уровней с таким именем. Выберите нужный:", reply_markup=builder.as_markup())
+        await message.answer("Есть несколько уровней с таким названием. Выберите нужный:", reply_markup=builder.as_markup())
         return
         
     await render_level_info(levels[0], message)
@@ -467,16 +399,14 @@ async def generate_level_info_text(level) -> str:
     
     creator_str = dict(level).get('creator', 'Unknown')
     ingame_id = dict(level).get('ingame_id')
-    id_str = f"DL ID: #{level['level_id']}"
-    if ingame_id:
-        id_str += f" | ID в игре: {ingame_id}"
-    text = f"🌋 Уровень: {level['level_name']} [{creator_str}] (Топ-{level['position']} | {id_str})\n\n"
+    id_str = f" | ID в игре: {ingame_id}" if ingame_id else ""
+    text = f"🌋 {level['level_name']} [{creator_str}] (Топ-{level['position']}{id_str})\n\n"
     
     text += f"🏆 Прошли ({len(completions)}):\n"
     if not completions:
         text += "- Пока никто\n"
     for c in completions:
-        status_text = "Подтверждено" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
+        status_text = "Подтверждено Demonlist" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
         text += f"- {c['nickname']} ({status_text})\n"
         
     if progresses:
@@ -487,7 +417,7 @@ async def generate_level_info_text(level) -> str:
             if prog_str not in grouped_progs[p['nickname']]:
                 grouped_progs[p['nickname']].append(prog_str)
             
-        text += f"\n📈 Прогрессы ({len(grouped_progs)}):\n"
+        text += f"\n📈 Прогресс ({len(grouped_progs)}):\n"
         for nickname, p_list in grouped_progs.items():
             text += f"- {nickname} {' | '.join(p_list)}\n"
             
@@ -517,7 +447,7 @@ async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
 async def cmd_lvlp(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /lvlp [Место] или /lvlp [От-До]\nНапример: /lvlp 1 или /lvlp 2-4")
+        await message.answer("Укажите место или диапазон: /lp 1 или /lp 2-4.")
         return
         
     query = args[1].replace(" ", "")
@@ -527,14 +457,14 @@ async def cmd_lvlp(message: Message):
         else:
             start_pos = end_pos = int(query)
     except ValueError:
-        await message.answer("❌ Неверный формат. Ожидается число или диапазон (например, 2-4).")
+        await message.answer("Укажите число или диапазон: /lp 1 или /lp 2-4.")
         return
         
     if start_pos > end_pos:
         start_pos, end_pos = end_pos, start_pos
         
     if start_pos < 1:
-        await message.answer("❌ Неверный диапазон.")
+        await message.answer("Место в Demonlist должно быть от 1.")
         return
         
     from database.models import get_levels_with_victors
@@ -546,8 +476,8 @@ async def cmd_lvlp(message: Message):
             return
         await render_level_info(levels[0], message)
     else:
-        if (end_pos - start_pos) > 30:
-            await message.answer("❌ Диапазон слишком большой (максимум 30 уровней за раз).")
+        if (end_pos - start_pos + 1) > 30:
+            await message.answer("Слишком большой диапазон. Попробуйте /lp 1-30, затем /lp 31-60.")
             return
             
         levels = await get_levels_with_victors(start_pos, end_pos)
@@ -555,11 +485,11 @@ async def cmd_lvlp(message: Message):
             await message.answer("❌ Уровни в этом диапазоне не найдены.")
             return
             
-        text = f"🌋 Уровни Топ {start_pos}-{end_pos}:\n\n"
+        text = f"🌋 Места {start_pos}–{end_pos} в Demonlist:\n\n"
         for lvl in levels:
             creator_str = dict(lvl).get('creator', 'Unknown')
             victors = lvl['victors_count']
-            text += f"{lvl['position']}. {lvl['level_name']} [{creator_str}] — Прошли: {victors}\n"
+            text += f"{lvl['position']}. {lvl['level_name']} [{creator_str}] — прошли: {victors}\n"
             
         await message.answer(text)
 
@@ -582,19 +512,19 @@ async def cmd_try(message: Message, state: FSMContext):
             nick = args[1]
             levels_str = " ".join(args[2:])
     else:
-        await message.answer("Использование: /try [Ник_или_me] [\"Уровень1, Уровень2...\"]\nНапример: /try \"f f i z z\" \"Bloodbath, Tartarus\"\nИли просто: /try \"Bloodbath\" (если профиль привязан)")
+        await message.answer("Рассчитайте результат: /try me Bloodbath, Tartarus\nДля другого игрока: /try \"Mr Spaced\" Bloodbath\nРекорды не сохраняются. Подробнее: /help try.")
         return
         
     if nick == "me":
         from database.models import get_player_by_tg
         player = await get_player_by_tg(message.from_user.id)
         if not player:
-            await message.answer("❌ Ваш Telegram аккаунт не привязан к профилю. Обратитесь к администратору.")
+            await message.answer("Telegram ещё не привязан к профилю. Укажите ник вместо me или попросите администратора привязать аккаунт.")
             return
     else:
         player = await get_player_by_nick(nick)
         if not player:
-            await message.answer("❌ Игрок не найден.")
+            await message.answer("Игрок не найден. Проверьте ник.")
             return
         
     records = await get_player_records(player['id'])
@@ -612,20 +542,9 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         if not lvl_name:
             continue
             
-        if lvl_name.isdigit():
-            lvl = await get_level_by_id(int(lvl_name))
-            if lvl:
-                if lvl['level_id'] not in completed_level_ids and lvl['level_id'] not in new_level_ids:
-                    name_disp = lvl['level_name']
-                    if name_disp.lower() in ambiguous_names:
-                        name_disp += f" [{dict(lvl).get('creator', 'Unknown')}]"
-                    new_level_ids.append(lvl['level_id'])
-                    found_levels.append(f"{name_disp} (Топ-{lvl['position']})")
-            continue
-            
         lvls = await get_levels_by_name(lvl_name)
         if not lvls:
-            text = f"❌ Уровень '{lvl_name}' не найден."
+            text = f"Уровень «{lvl_name}» не найден. Проверьте название."
             if hasattr(message_or_query, 'message'):
                 try:
                     await message_or_query.message.edit_text(text)
@@ -653,7 +572,7 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
                 builder.button(text=f"Топ-{l['position']} - {l['level_name']} [{creator_str}]", callback_data=cb_data)
             builder.adjust(1)
             
-            text = f"Уровень '{lvl_name}' имеет несколько вариантов. Выберите нужный:"
+            text = f"Есть несколько уровней «{lvl_name}». Выберите нужный:"
             if hasattr(message_or_query, 'message'):
                 try:
                     await message_or_query.message.edit_text(text, reply_markup=builder.as_markup())
@@ -674,6 +593,11 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
     await state.clear()
     
     if not new_level_ids:
+        text = "Нет новых прохождений для расчёта: указанные уровни уже пройдены или список пуст."
+        if hasattr(message_or_query, 'message'):
+            await message_or_query.message.edit_text(text, reply_markup=None)
+        else:
+            await message_or_query.answer(text)
         return
         
     from services.calculator import calculate_hypothetical_score, get_leaderboard
@@ -682,8 +606,8 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
     lb = await get_leaderboard()
     
     current_entry = next((e for e in lb if e['player']['id'] == player['id']), None)
-    old_rank_str = str(current_entry['rank']) if current_entry else "N/A"
-    old_score_str = f"{current_entry['score']:.2f}" if current_entry else "N/A"
+    old_rank_str = str(current_entry['rank']) if current_entry else "—"
+    old_score_str = f"{current_entry['score']:.2f}" if current_entry else "—"
     
     other_players = [e for e in lb if e['player']['id'] != player['id']]
     better_players = sum(1 for e in other_players if e['score'] < new_score)
@@ -696,15 +620,15 @@ async def process_try_query(message_or_query, state: FSMContext, player, pending
         elif diff < 0:
             diff_str = f"(🔽 {abs(diff)})"
         else:
-            diff_str = "(=)"
+            diff_str = "(без изменений)"
     else:
-        diff_str = "(🆕 Новый)"
+        diff_str = "(вход в рейтинг)"
         
     text = (
-        f"🔮 Что если {player['nickname']} пройдет:\n"
+        f"🔮 Что если {player['nickname']} пройдёт:\n"
         f"{', '.join(found_levels)}\n\n"
-        f"📊 Баллы: {old_score_str} -> {new_score:.2f}\n"
-        f"🏆 Место в топе: {old_rank_str} -> {new_rank} {diff_str}"
+        f"📊 Баллы: {old_score_str} → {new_score:.2f}\n"
+        f"🏆 Место в рейтинге: {old_rank_str} → {new_rank} {diff_str}"
     )
     if hasattr(message_or_query, 'message'):
         try:
@@ -757,4 +681,4 @@ async def cb_try_resolve(query: CallbackQuery, callback_data: TryResolveCallback
 @router.message()
 async def unknown_message(message: Message):
     if message.text and message.text.startswith('/'):
-        await message.answer("❌ Неизвестная команда или неверный формат. Введите /help для списка команд.")
+        await message.answer("Команда не найдена или недоступна. Список команд: /help.")

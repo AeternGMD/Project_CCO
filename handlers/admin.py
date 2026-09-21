@@ -1,4 +1,6 @@
 import os
+from html import escape
+from utils.command_help import command_help
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
@@ -41,12 +43,7 @@ async def cmd_add_player(message: Message):
         args = message.text.split()
         
     if len(args) != 6:
-        await message.answer(
-            "❌ Ошибка формата!\n"
-            "Использование: /add_player [\"Ник\"] [Demonlist_ID_или_-] [pc/mobile] [\"Город\"] [1_или_0]\n\n"
-            "⚠️ Важно: Если ник или город содержит пробелы, ОБЯЗАТЕЛЬНО используйте двойные кавычки!\n"
-            "Пример: /add_player \"Mr Spaced\" 123 pc \"Нижний Тагил\" 1"
-        )
+        await message.answer(command_help("ap", admin=True), parse_mode="HTML")
         return
         
     nick = args[1]
@@ -59,11 +56,11 @@ async def cmd_add_player(message: Message):
     demonlist_id = extract_demonlist_id(demonlist_id_raw)
     
     if await get_player_by_nick(nick):
-        await message.answer("❌ Игрок с таким ником уже существует.")
+        await message.answer("Игрок с таким ником уже есть. Изменить профиль: /help ep.")
         return
         
     await add_player(nick, demonlist_id, platform, location, api_sync)
-    await message.answer(f"✅ Игрок {nick} успешно добавлен.")
+    await message.answer(f"✅ Игрок {nick} добавлен.")
 
 @router.message(Command("toggle_notifications", "tn", ignore_case=True))
 async def cmd_toggle_notifications(message: Message):
@@ -72,7 +69,7 @@ async def cmd_toggle_notifications(message: Message):
     new_state = "false" if current == "true" else "true"
     await set_setting("notifications_enabled", new_state)
     status = "включены 🔔" if new_state == "true" else "выключены 🔕"
-    await message.answer(f"Уведомления в канале теперь {status}.")
+    await message.answer(f"Уведомления о прохождениях {status}.")
 
 @router.message(Command("restart", "res", ignore_case=True))
 async def cmd_restart(message: Message):
@@ -80,7 +77,7 @@ async def cmd_restart(message: Message):
     import os
     from database.models import set_setting
     await set_setting("restart_notify", str(message.from_user.id))
-    await message.answer("🔄 Бот перезапускается...")
+    await message.answer("Перезапускаю бота…")
     args = [sys.executable] + sys.argv
     args = [f'"{a}"' if ' ' in a else a for a in args]
     os.execv(sys.executable, args)
@@ -89,17 +86,17 @@ async def cmd_restart(message: Message):
 async def cmd_del_player(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /del_player [Ник]")
+        await message.answer("Удалить профиль и все рекорды: /dp Mr Spaced\nКавычки не нужны. Удаление выполняется сразу, без подтверждения.")
         return
         
     nick = args[1]
     player = await get_player_by_nick(nick)
     if not player:
-        await message.answer("❌ Игрок не найден.")
+        await message.answer("Игрок не найден. Проверьте ник.")
         return
         
     await delete_player(player['id'])
-    await message.answer(f"✅ Игрок {nick} удален.")
+    await message.answer(f"✅ Профиль {nick} и его рекорды удалены.")
 
 @router.message(Command("edit_player", "ep", ignore_case=True))
 async def cmd_edit_player(message: Message):
@@ -110,12 +107,7 @@ async def cmd_edit_player(message: Message):
         args = message.text.split()
         
     if len(args) != 4:
-        await message.answer(
-            "❌ Использование: /edit_player [\"Ник\"] [Поле] [\"Новое_Значение\"]\n"
-            "Поля: platform, location, api_sync, contacts, demonlist_id, nickname\n\n"
-            "⚠️ Важно: Если значение содержит пробелы, ОБЯЗАТЕЛЬНО используйте кавычки!\n"
-            "Пример: /edit_player Kwikzy location \"Нижний Тагил\""
-        )
+        await message.answer(command_help("ep", admin=True), parse_mode="HTML")
         return
         
     nick = args[1]
@@ -124,12 +116,12 @@ async def cmd_edit_player(message: Message):
     
     player = await get_player_by_nick(nick)
     if not player:
-        await message.answer("❌ Игрок не найден.")
+        await message.answer("Игрок не найден. Проверьте ник.")
         return
         
     valid_fields = ['platform', 'location', 'api_sync', 'contacts', 'demonlist_id', 'nickname']
     if field not in valid_fields:
-        await message.answer(f"❌ Неверное поле. Допустимые: {', '.join(valid_fields)}")
+        await message.answer(f"Неизвестное поле. Доступны: {', '.join(valid_fields)}")
         return
         
     update_data = {}
@@ -146,7 +138,7 @@ async def cmd_edit_player(message: Message):
         update_data[field] = value
         
     await update_player(player['id'], **update_data)
-    await message.answer(f"✅ Профиль {nick} обновлен.")
+    await message.answer(f"✅ Профиль {nick} обновлён.")
 
 @router.message(Command("record", "r", ignore_case=True))
 async def cmd_record(message: Message):
@@ -157,17 +149,10 @@ async def cmd_del_record(message: Message):
     await handle_record_command(message, action='del')
 
 async def handle_level_query(message: Message, player_id: int, query: str, action: str, progress_start: int, progress_end: int):
-    levels = []
-    if query.isdigit():
-        lvl = await get_level_by_id(int(query))
-        if lvl:
-            levels.append(lvl)
-    
-    if not levels:
-        levels = await get_levels_by_name(query)
+    levels = await get_levels_by_name(query)
         
     if not levels:
-        await message.answer(f"❌ Уровень «{query}» не найден в кэше.")
+        await message.answer(f"Уровень «{query}» не найден. Укажите название, не ID.")
         return
         
     if len(levels) == 1:
@@ -210,7 +195,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
     player = await get_player_by_id(player_id)
     level = await get_level_by_id(level_id)
     if not player or not level:
-        await message.answer('❌ Игрок или уровень удалён. Повторите команду.')
+        await message.answer('Игрок или уровень больше не найден. Повторите команду с актуальными данными.')
         return
     
     old_leaderboard = await get_leaderboard()
@@ -235,7 +220,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
         else:
             prog_str = f"{progress_end}%"
             
-        await message.answer(f"✅ Добавлено: {level['level_name']} [{creator_str}] ({prog_str}) для {player['nickname']}")
+        await message.answer(f"✅ {player['nickname']} · {level['level_name']} [{creator_str}] · {prog_str} — записано.")
         
         # Notify globally if it's a new 100% completion
         if progress_end == 100:
@@ -250,7 +235,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
         deleted_count = await delete_record(player_id, level_id)
         if deleted_count > 0:
             creator_str = dict(level).get('creator', 'Unknown')
-            await message.answer(f"🗑 Рекорд удален: {level['level_name']} [{creator_str}] для {player['nickname']}")
+            await message.answer(f"🗑 {player['nickname']} · {level['level_name']} [{creator_str}] — рекорды удалены.")
             
             new_leaderboard = await get_leaderboard()
             await send_record_notification(
@@ -258,13 +243,13 @@ async def process_record_action(message: Message, action: str, player_id: int, l
                 level['position'], old_leaderboard, new_leaderboard, record_deleted=True
             )
         else:
-            await message.answer("❌ У этого игрока нет рекордов на данном уровне.")
+            await message.answer("У игрока нет рекордов на этом уровне. Ничего не изменено.")
 
 @router.message(Command("link", ignore_case=True))
 async def cmd_link(message: Message):
     args = message.text.split(maxsplit=2)
     if len(args) < 3:
-        await message.answer("Использование: /link [Ник] [Telegram ID]")
+        await message.answer("Пример: /link Kwikzy 123456789\nНужен числовой Telegram ID, не @username. Ник пока должен быть без пробелов.")
         return
     nick = args[1]
     if not args[2].isdigit():
@@ -274,33 +259,33 @@ async def cmd_link(message: Message):
     
     player = await get_player_by_nick(nick)
     if not player:
-        await message.answer("❌ Игрок не найден.")
+        await message.answer("Игрок не найден. Проверьте ник.")
         return
         
     from database.models import link_player_tg
     await link_player_tg(player['id'], tg_id)
-    await message.answer(f"✅ Telegram аккаунт ({tg_id}) успешно привязан к игроку {player['nickname']}.")
+    await message.answer(f"✅ Telegram {tg_id} привязан к профилю {player['nickname']}.")
 
 @router.message(Command("unlink", ignore_case=True))
 async def cmd_unlink(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("Использование: /unlink [Ник]")
+        await message.answer("Укажите ник: /unlink Mr Spaced\nКавычки не нужны. Профиль и рекорды сохранятся.")
         return
     nick = args[1]
     
     player = await get_player_by_nick(nick)
     if not player:
-        await message.answer("❌ Игрок не найден.")
+        await message.answer("Игрок не найден. Проверьте ник.")
         return
         
     from database.models import unlink_player_tg
     await unlink_player_tg(player['id'])
-    await message.answer(f"✅ Telegram аккаунт отвязан от игрока {player['nickname']}.")
+    await message.answer(f"✅ Telegram отвязан от профиля {player['nickname']}.")
 
 @router.message(Command("info_update", "iu", ignore_case=True))
 async def cmd_info_update(message: Message):
-    msg = await message.answer("🔄 Загрузка данных с сайта...")
+    msg = await message.answer("Обновляю уровни из Demonlist…")
     
     async def update_progress(current, total):
         if total == 0:
@@ -309,7 +294,7 @@ async def cmd_info_update(message: Message):
         bar_length = 20
         filled = int(bar_length * percent)
         bar = "█" * filled + "░" * (bar_length - filled)
-        text = f"🔄 Обновление базы уровней...\n[{bar}] {current}/{total}"
+        text = f"Сохраняю уровни…\n[{bar}] {current}/{total}"
         try:
             await msg.edit_text(text)
         except:
@@ -322,13 +307,13 @@ async def cmd_info_update(message: Message):
         return
     except DemonlistAPIError as exc:
         await msg.edit_text(
-            "❌ Не удалось обновить базу уровней: Demonlist API не вернул "
-            "полные данные. Попробуйте ещё раз позже.\n\n"
-            f"Техническая причина: {exc}"
+            "Не удалось обновить уровни. Возможна ошибка Demonlist, сети или базы данных. "
+            "Повторите команду позже.\n\n"
+            f"Подробности: {exc}"
         )
         return
     
-    await msg.edit_text(f"✅ База уровней обновлена ({updated}).\n🔄 Синхронизация профилей...")
+    await msg.edit_text(f"✅ Обновлено уровней: {updated}.\nСинхронизирую прохождения игроков…")
     
     # Run sync for all players in background
     from database.models import get_all_players
@@ -341,13 +326,13 @@ async def cmd_info_update(message: Message):
 
     if failed_profiles:
         await msg.edit_text(
-            f"⚠️ База уровней обновлена.\n"
+            f"⚠️ Уровни обновлены, но часть профилей не синхронизирована.\n"
             f"Обновлено уровней: {updated}\n"
-            f"Не удалось синхронизировать профилей: {failed_profiles}"
+            f"Профилей с ошибкой: {failed_profiles}"
         )
     else:
         await msg.edit_text(
-            f"✅ База уровней и профили игроков успешно обновлены!\n"
+            f"✅ Уровни и профили с включённой синхронизацией обновлены.\n"
             f"Обновлено уровней: {updated}"
         )
 
@@ -374,10 +359,10 @@ async def cmd_backup(message: Message):
             if proc.returncode != 0:
                 raise Exception("mysqldump failed")
         db_file = FSInputFile(backup_path)
-        await message.answer_document(db_file, caption="Резервная копия базы данных.")
+        await message.answer_document(db_file, caption="Резервная копия базы (.sql). Сохраните файл в надёжном месте и не публикуйте его.")
         os.remove(backup_path)
     except Exception as e:
-        await message.answer(f"❌ Ошибка при создании бекапа: {e}")
+        await message.answer(f"Не удалось создать резервную копию: {e}")
 
 @router.message(Command("restore"))
 async def cmd_restore(message: Message, bot: Bot):
@@ -385,7 +370,7 @@ async def cmd_restore(message: Message, bot: Bot):
 
     if not message.reply_to_message or not message.reply_to_message.document:
         print("DEBUG: Not replying to a document")
-        await message.answer("⚠️ Вы должны ответить этой командой на файл .db или .sql!")
+        await message.answer("Отправьте доверенную копию .sql или .db и ответьте на неё командой /restore.\nПеред восстановлением сохраните текущую базу: /backup.")
         return
         
     doc = message.reply_to_message.document
@@ -393,17 +378,17 @@ async def cmd_restore(message: Message, bot: Bot):
     is_sql = doc.file_name.endswith('.sql')
     
     if not is_sqlite and not is_sql:
-        await message.answer("❌ Неверный формат файла. Нужен .sql или .db")
+        await message.answer("Нужна резервная копия .sql или .db. Отправьте файл и ответьте на него командой /restore.")
         return
         
     backup_path = "restore.db" if is_sqlite else "restore.sql"
     
-    msg = await message.answer("⏳ Скачиваю файл базы данных...")
+    msg = await message.answer("Скачиваю резервную копию…")
     await bot.download(doc, destination=backup_path)
     
     try:
         if is_sql:
-            await msg.edit_text("⏳ Восстанавливаю SQL дамп...")
+            await msg.edit_text("Восстанавливаю базу из .sql…")
             with open(backup_path, "rb") as f:
                 import asyncio
                 
@@ -421,17 +406,17 @@ async def cmd_restore(message: Message, bot: Bot):
                     await asyncio.wait_for(proc.communicate(), timeout=30.0)
                 except asyncio.TimeoutError:
                     proc.kill()
-                    raise Exception("Процесс завис из-за неверной кодировки файла. Сделайте /backup прямо через бота.")
+                    raise Exception("Восстановление не завершилось за 30 секунд. Проверьте журнал сервера и состояние базы перед повторной попыткой.")
                 if proc.returncode != 0:
                     raise Exception("mysql restore failed")
-            await msg.edit_text("✅ База данных (SQL) успешно восстановлена!")
+            await msg.edit_text("✅ База восстановлена из .sql.")
         else:
-            await msg.edit_text("⏳ Обнаружен старый формат базы SQLite (.db). Начинаю автоматическую миграцию в MariaDB... Это займет пару секунд.")
+            await msg.edit_text("Переношу данные из старой копии .db в MariaDB…")
             from database.migrate import migrate_sqlite_to_mysql
             await migrate_sqlite_to_mysql(backup_path)
-            await msg.edit_text("✅ База данных SQLite успешно мигрирована в MariaDB!")
+            await msg.edit_text("✅ Данные из .db перенесены в MariaDB.")
     except Exception as e:
-        await msg.edit_text(f"❌ Ошибка при восстановлении: {e}")
+        await msg.edit_text(f"Восстановление не завершено. База могла измениться частично. Подробности: {e}")
     finally:
         from database.models import invalidate_level_caches
         invalidate_level_caches()
@@ -444,13 +429,13 @@ async def cmd_restore(message: Message, bot: Bot):
 async def cmd_ban(message: Message):
     args = message.text.split(maxsplit=2)
     if len(args) < 2:
-        await message.answer("Использование: /ban <user_id> [время: 1m/м, 2h/ч, 3d/д] [причина]")
+        await message.answer("Пример: /ban 123456789 30d Спам\nСрок: 10m — минуты, 2h — часы, 3d — дни. Без срока — бессрочно.")
         return
         
     try:
         user_id = int(args[1])
     except ValueError:
-        await message.answer("❌ Неверный формат user_id.")
+        await message.answer("Укажите числовой Telegram ID, например 123456789.")
         return
         
     banned_until = None
@@ -486,25 +471,25 @@ async def cmd_ban(message: Message):
     if banned_until:
         import datetime
         dt = datetime.datetime.fromtimestamp(banned_until).strftime('%Y-%m-%d %H:%M:%S')
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен до {dt}.\nПричина: {reason or 'Не указана'}", parse_mode="HTML")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> заблокирован до {dt} (время сервера).\nПричина: {escape(reason) if reason else 'Не указана'}", parse_mode="HTML")
     else:
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен навсегда.\nПричина: {reason or 'Не указана'}", parse_mode="HTML")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> заблокирован бессрочно.\nПричина: {escape(reason) if reason else 'Не указана'}", parse_mode="HTML")
 
 @router.message(Command("unban", "ub", ignore_case=True))
 async def cmd_unban(message: Message):
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("Использование: /unban <user_id>")
+        await message.answer("Пример: /unban 123456789 — снять блокировку по Telegram ID.")
         return
         
     try:
         user_id = int(args[1])
     except ValueError:
-        await message.answer("❌ Неверный формат user_id.")
+        await message.answer("Укажите числовой Telegram ID, например 123456789.")
         return
         
     from database.models import unban_user
     if await unban_user(user_id):
-        await message.answer(f"✅ Пользователь <code>{user_id}</code> разбанен.", parse_mode="HTML")
+        await message.answer(f"✅ Пользователь <code>{user_id}</code> разблокирован.", parse_mode="HTML")
     else:
-        await message.answer(f"❌ Пользователь <code>{user_id}</code> не найден в списке забаненных.", parse_mode="HTML")
+        await message.answer(f"❌ Пользователь <code>{user_id}</code> не заблокирован.", parse_mode="HTML")

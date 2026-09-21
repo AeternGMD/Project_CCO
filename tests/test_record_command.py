@@ -41,7 +41,7 @@ class ResolverTests(unittest.TestCase):
             ('/r "Mr Spaced" "Tidal Wave" 100', 2, [1]),
             ("/r player Don't Stop", 3, [10]),
             ('/r player "Name, Part Two" 75', 3, [11]),
-            ('/r @2: #1, #4', 2, [1, 4]),
+            ('/r @2: Tidal Wave, Theory of Everything 2', 2, [1, 4]),
             ('/r PLAYER tidal   wave', 3, [1]),
         ]
         for command, pid, lids in cases:
@@ -67,10 +67,22 @@ class ResolverTests(unittest.TestCase):
         quoted = resolve_record_command('/r player "Level 60"', CATALOG)[0].groups[0]
         self.assertEqual([6], [o.level_id for o in quoted])
 
-    def test_numeric_name_and_legacy_id_require_choice(self):
+    def test_numeric_name_is_never_interpreted_as_a_level_id(self):
         options = resolve_record_command('/r player 123', CATALOG)[0].groups[0]
-        self.assertEqual({9, 123}, {o.level_id for o in options})
-        self.assertEqual(123, resolve_record_command('/r player #123', CATALOG)[0].groups[0][0].level_id)
+        self.assertEqual({9}, {o.level_id for o in options})
+        for action in ('add', 'del'):
+            for value in ('#123', '1', '#1'):
+                with self.subTest(action=action, value=value), self.assertRaises(ValueError):
+                    resolve_record_command(f'/r player {value}', CATALOG, action)
+
+    def test_choice_label_uses_creator_and_position_not_global_id(self):
+        catalog = RecordCatalog(PLAYERS, [dict(level(1537, 'Shared', 'A'), position=10),
+                                          dict(level(1538, 'Shared', 'B'), position=20)])
+        options = resolve_record_command('/r player Shared', catalog)[0].groups[0]
+        self.assertIn('Топ-10', options[0].label)
+        self.assertIn('[A]', options[0].label)
+        self.assertNotIn('1537', options[0].label)
+        self.assertIn('[B]', options[1].label)
 
     def test_runs_and_individual_progress_in_batch(self):
         groups = resolve_record_command('/r Mr Spaced: Tidal Wave 60 | 40-100, Bloodbath = 100', CATALOG)[0].groups
@@ -121,15 +133,28 @@ class HandlerTests(unittest.IsolatedAsyncioTestCase):
         await record_input.choose_record(query, record_input.RecordChoice(token=work.token, index=index))
         return query
 
-    async def test_bulk_deduplicates_name_and_id(self):
-        await self.start('/r Mr Spaced: Tidal Wave, Bloodbath, #1')
+    async def test_bulk_deduplicates_names(self):
+        await self.start('/r Mr Spaced: Tidal Wave, Bloodbath, tidal wave')
         self.assertEqual([(self.message, 'add', 2, 1, 0, 100), (self.message, 'add', 2, 2, 0, 100)],
                          [call.args for call in self.write.await_args_list])
 
     async def test_unknown_aborts_entire_batch(self):
         await self.start('/r player Bloodbath, Missing')
         self.write.assert_not_awaited()
-        self.assertIn('Ничего не записано', self.message.answer.await_args.args[0])
+        self.assertIn('Ничего не изменено', self.message.answer.await_args.args[0])
+
+    async def test_removed_id_input_never_writes_and_delete_error_uses_delete_example(self):
+        for command in ('/r player Bloodbath, #1', '/dr player #1'):
+            self.message.text = command
+            if command.startswith('/dr'):
+                await admin.cmd_del_record(self.message)
+                text = self.message.answer.await_args.args[0]
+                self.assertIn('Пример: /dr', text)
+                self.assertNotIn('= 60%', text)
+                self.assertNotIn('Пример: /r ', text)
+            else:
+                await admin.cmd_record(self.message)
+            self.write.assert_not_awaited()
 
     async def test_player_then_level_selection_and_double_click(self):
         await self.start('/r Mr Spaced Tidal Wave, Shared')

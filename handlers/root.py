@@ -12,7 +12,7 @@ router.message.filter(RootFilter())
 async def cmd_add_admin(message: Message):
     args = message.text.split()
     if len(args) != 2:
-        await message.answer("Использование: /add_admin [TG_ID]")
+        await message.answer("Назначить администратора: /add_admin 123456789\nУкажите Telegram ID доверенного пользователя.")
         return
         
     try:
@@ -20,18 +20,18 @@ async def cmd_add_admin(message: Message):
         await add_admin(tg_id)
         await message.answer(f"✅ Администратор {tg_id} добавлен.")
     except ValueError:
-        await message.answer("❌ Ошибка: TG_ID должен быть числом.")
+        await message.answer("Telegram ID должен быть числом, например 123456789.")
 
 @router.message(Command("del_admin"))
 async def cmd_del_admin(message: Message):
     args = message.text.split()
     if len(args) != 2:
-        await message.answer("Использование: /del_admin [TG_ID]")
+        await message.answer("Снять права администратора: /del_admin 123456789")
         return
         
     try:
         tg_id = int(args[1])
         await del_admin(tg_id)
-        await message.answer(f"✅ Администратор {tg_id} удален.")
+        await message.answer(f"✅ Права администратора у {tg_id} сняты.")
     except ValueError:
-        await message.answer("❌ Ошибка: TG_ID должен быть числом.")
+        await message.answer("Telegram ID должен быть числом, например 123456789.")

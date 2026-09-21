@@ -11,7 +11,7 @@ from services.record_resolver import RecordCatalog, resolve_record_command
 def main():
     tracemalloc.start()
     players = [{'id': i, 'nickname': f'Player Number {i}'} for i in range(500)]
-    levels = [{'level_id': i, 'level_name': f'Level Number {i}', 'creator': 'Creator'}
+    levels = [{'level_id': i, 'level_name': f'Level Number {i}', 'creator': 'Creator', 'position': i + 1}
               for i in range(2000)]
     catalog = RecordCatalog(players, levels)
     peak = tracemalloc.get_traced_memory()[1]
@@ -19,7 +19,7 @@ def main():
     commands = [
         '/r Player Number 42 Level Number 100',
         '/r Player Number 42: Level Number 100 = 60 | 40-100',
-        '/r @42: #100, #200, #300, #400',
+        '/r Player Number 42: Level Number 100, Level Number 200, Level Number 300, Level Number 400',
     ]
     iterations = 5000
     started = time.perf_counter()

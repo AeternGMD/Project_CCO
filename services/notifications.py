@@ -1,5 +1,6 @@
 from aiogram import Bot
 from config import CHANNEL_ID
+from utils.display import platform_label
 from typing import List, Dict, Any, Optional
 
 async def send_record_notification(
@@ -41,16 +42,16 @@ async def send_record_notification(
     # Base text
     action_text = "прошёл уровень"
             
-    text = f"[{platform}] Игрок {player_nickname} {action_text} {level_name} (топ-{level_position}).\n"
+    text = f"[{platform_label(platform)}] {player_nickname} {action_text} {level_name} (топ-{level_position}).\n"
     
     # Places
-    old_place_str = old_place if old_place is not None else "None"
-    new_place_str = new_place if new_place is not None else "None"
+    old_place_str = old_place if old_place is not None else "вне рейтинга"
+    new_place_str = new_place if new_place is not None else "вне рейтинга"
     
     if old_place == new_place:
-        text += f"Перемещение: Позиция в топе не изменилась (Топ-{new_place_str}).\n"
+        text += f"Место в рейтинге: {new_place_str} — без изменений.\n"
     else:
-        text += f"Перемещение: {old_place_str} ➡️ {new_place_str}.\n"
+        text += f"Место в рейтинге: {old_place_str} → {new_place_str}.\n"
     
     # Show neighbors only if the player's place changed and they are still in the top
     if new_place is not None and old_place != new_place:
@@ -69,9 +70,9 @@ async def send_record_notification(
     
     # Edge cases
     if new_place == 1 and old_place != 1:
-        text += "👑 Новый лидер топа!\n"
+        text += "👑 Новый лидер рейтинга!\n"
     if old_place is None and new_place is not None:
-        text += "🌟 Добро пожаловать в наш рейтинг!\n"
+        text += "🌟 Первое прохождение в рейтинге!\n"
     if new_place is None and old_place is not None:
         text += f"📉 {player_nickname} покидает рейтинг.\n"
         
