@@ -34,7 +34,8 @@ async def inline_search(inline_query: InlineQuery):
                 id=result_id,
                 title=f"👤 Игрок: {player['nickname']}",
                 description=desc,
-                input_message_content=InputTextMessageContent(message_text=text, parse_mode=None),
+                input_message_content=InputTextMessageContent(message_text=text, parse_mode=None,
+                                                             entities=text.entities, disable_web_page_preview=True),
                 reply_markup=markup,
             )
         )
@@ -54,7 +55,8 @@ async def inline_search(inline_query: InlineQuery):
                 id=result_id,
                 title=f"⚙️ Уровень: {lvl_name} [{creator}]",
                 description=f"Топ-{lvl['position']} в Demonlist",
-                input_message_content=InputTextMessageContent(message_text=text)
+                input_message_content=InputTextMessageContent(message_text=text, parse_mode=None,
+                                                             entities=text.entities, disable_web_page_preview=True)
             )
         )
         

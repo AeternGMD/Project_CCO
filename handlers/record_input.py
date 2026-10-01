@@ -13,6 +13,7 @@ from database.models import get_record_catalog_version
 from services.record_catalog import get_record_catalog
 from services.record_resolver import resolve_record_command
 from utils.filters import AdminFilter
+from utils.record_links import youtube_url
 
 router = Router()
 PENDING_TTL = 300
@@ -39,6 +40,7 @@ class PendingRecord:
     group_index: int = -1
     choices: list = field(default_factory=list)
     message_id: int = 0
+    video_url: str | None = None
 
 
 def remember(work):
@@ -53,7 +55,20 @@ def remember(work):
 async def handle_record_command(message: Message, action='add'):
     catalog = await get_record_catalog()
     try:
-        plans = resolve_record_command(message.text, catalog, action)
+        command = message.text
+        video = None
+        parts = command.rsplit(maxsplit=1)
+        if len(parts) == 2 and parts[1].startswith(('http://', 'https://')):
+            video = youtube_url(parts[1])
+            if not video:
+                raise ValueError('Нужна ссылка на видео YouTube, например https://youtu.be/9aFft6uyyk8.')
+            if action != 'add':
+                raise ValueError('Для удаления укажите только ник и название уровня, без ссылки.')
+            command = parts[0]
+        plans = resolve_record_command(command, catalog, action)
+        if video and any(len(plan.groups) != 1 or any(len(option.progresses) != 1
+                        for group in plan.groups for option in group) for plan in plans):
+            raise ValueError('Ссылку можно добавить только к одному уровню и одному результату за команду.')
     except ValueError as exc:
         example = '/r Mr Spaced: Tidal Wave, Bloodbath' if action == 'add' else '/dr Mr Spaced: Tidal Wave, Bloodbath'
         help_command = '/help r' if action == 'add' else '/help dr'
@@ -62,6 +77,7 @@ async def handle_record_command(message: Message, action='add'):
     work = PendingRecord(
         secrets.token_hex(6), message.from_user.id, message.chat.id, action,
         plans, get_record_catalog_version(), time.monotonic() + PENDING_TTL,
+        video_url=video,
     )
     await advance(message, work)
 
@@ -156,5 +172,6 @@ async def apply_plan(message, work, edit):
             if identity in seen:
                 continue
             seen.add(identity)
+            kwargs = {'video_url': work.video_url} if work.video_url else {}
             await process_record_action(message, work.action, work.plan.player_id,
-                                        option.level_id, start, end)
+                                        option.level_id, start, end, **kwargs)

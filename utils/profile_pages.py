@@ -29,4 +29,13 @@ def split_profile_text(text: str, limit: int = 3800) -> list[str]:
 
     if current:
         pages.append(current)
+    if hasattr(text, 'entities'):
+        from utils.record_links import LinkedText, page_entities
+        offset = 0
+        linked_pages = []
+        for page in pages or [""]:
+            size = len(page.encode('utf-16-le')) // 2
+            linked_pages.append(LinkedText(page, page_entities(text.entities, offset, size)))
+            offset += size
+        return linked_pages
     return pages or [""]

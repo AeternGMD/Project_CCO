@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, List
 
 import aiohttp
+from utils.record_links import youtube_url
 
 from database.models import (
     add_record,
@@ -203,7 +204,7 @@ async def sync_player_records(player_id: int) -> bool:
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             offset = 0
-            verified_level_ids = set()
+            verified_videos = {}
 
             while True:
                 api_records = await _request_collection(
@@ -225,7 +226,9 @@ async def sync_player_records(player_id: int) -> bool:
                     if progress == 100 and status == "accepted":
                         level_info = record.get("level", {})
                         if "id" in level_info:
-                            verified_level_ids.add(int(level_info["id"]))
+                            level_id = int(level_info['id'])
+                            video = youtube_url(record.get('video_url'))
+                            verified_videos[level_id] = video or verified_videos.get(level_id)
 
                 if len(api_records) < PAGE_SIZE:
                     break
@@ -236,22 +239,24 @@ async def sync_player_records(player_id: int) -> bool:
 
         for record in local_records:
             local_level_ids.add(record["level_id"])
-            is_manual_completion = (
-                record["status"] == "Manual"
-                and record["progress_start"] == 0
+            is_completion = (
+                record["progress_start"] == 0
                 and record["progress_end"] == 100
             )
-            if is_manual_completion and record["level_id"] in verified_level_ids:
-                await update_record_status(record["id"], "Verified")
+            if is_completion and record["level_id"] in verified_videos:
+                video = verified_videos[record['level_id']]
+                if record['status'] == 'Verified' and (not video or video == youtube_url(record.get('video_url'))):
+                    continue
+                await update_record_status(record["id"], "Verified", video)
                 logger.info(
                     "Verified record ID %s for player %s",
                     record["id"],
                     player["nickname"],
                 )
 
-        for level_id in verified_level_ids:
+        for level_id in verified_videos:
             if level_id not in local_level_ids:
-                await add_record(player_id, level_id, 0, 100, "Verified")
+                await add_record(player_id, level_id, 0, 100, "Verified", video_url=verified_videos[level_id])
                 logger.info(
                     "Auto-added verified level %s for player %s",
                     level_id,

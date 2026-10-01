@@ -132,14 +132,14 @@ class HelpHandlerTests(unittest.IsolatedAsyncioTestCase):
             await public.process_try_query(message, state, {'id': 42}, [], [], [], set())
         self.assertIn('Нет новых прохождений', message.answer.await_args.args[0])
 
-    async def test_range_limit_matches_documented_thirty_levels(self):
-        message = types.SimpleNamespace(text='/lp 1-31', answer=AsyncMock())
+    async def test_range_limit_matches_documented_101_levels(self):
+        message = types.SimpleNamespace(text='/lp 1-102', answer=AsyncMock())
         with patch('database.models.get_levels_with_victors', AsyncMock(return_value=[])) as lookup:
             await public.cmd_lvlp(message)
             lookup.assert_not_awaited()
-            message.text = '/lp 1-30'
+            message.text = '/lp 1-101'
             await public.cmd_lvlp(message)
-            lookup.assert_awaited_once_with(1, 30)
+            lookup.assert_awaited_once_with(1, 101)
 
 
 if __name__ == '__main__':

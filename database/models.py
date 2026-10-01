@@ -220,8 +220,26 @@ async def get_levels_with_victors(start_pos: int, end_pos: int) -> List[dict]:
 
 # --- Record Operations ---
 
-async def add_record(player_id: int, level_id: int, progress_start: int, progress_end: int, status: str):
+async def add_record(player_id: int, level_id: int, progress_start: int, progress_end: int, status: str, video_url=None):
+    from utils.record_links import youtube_url
+    video_url = youtube_url(video_url)
     async with get_db_connection() as conn:
+        if video_url:
+            await conn.execute(
+                "UPDATE records SET video_url = ? WHERE player_id = ? AND level_id = ? "
+                "AND progress_start = ? AND progress_end = ?",
+                (video_url, player_id, level_id, progress_start, progress_end),
+            )
+            await conn.commit()
+        if video_url is None:
+            cursor = await conn.execute(
+                "SELECT video_url FROM records WHERE player_id = ? AND level_id = ? "
+                "AND progress_start = ? AND progress_end = ? AND video_url IS NOT NULL LIMIT 1",
+                (player_id, level_id, progress_start, progress_end),
+            )
+            previous = await cursor.fetchone()
+            if previous:
+                video_url = youtube_url(previous['video_url'])
         # If progress is 100%, delete old records for this level
         if progress_start == 0 and progress_end == 100:
             await conn.execute("DELETE FROM records WHERE player_id = ? AND level_id = ?", (player_id, level_id))
@@ -238,9 +256,9 @@ async def add_record(player_id: int, level_id: int, progress_start: int, progres
                 await conn.execute("DELETE FROM records WHERE player_id = ? AND level_id = ? AND progress_end = 100 AND progress_start > ?", (player_id, level_id, progress_start))
         
         await conn.execute('''
-            INSERT INTO records (player_id, level_id, progress_start, progress_end, status)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (player_id, level_id, progress_start, progress_end, status))
+            INSERT INTO records (player_id, level_id, progress_start, progress_end, status, video_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (player_id, level_id, progress_start, progress_end, status, video_url))
         await conn.commit()
     mark_leaderboard_dirty()
 
@@ -287,9 +305,11 @@ async def delete_record(player_id: int, level_id: int) -> int:
     mark_leaderboard_dirty()
     return rowcount
 
-async def update_record_status(record_id: int, status: str):
+async def update_record_status(record_id: int, status: str, video_url=None):
+    from utils.record_links import youtube_url
     async with get_db_connection() as conn:
-        await conn.execute("UPDATE records SET status = ? WHERE id = ?", (status, record_id))
+        await conn.execute("UPDATE records SET status = ?, video_url = COALESCE(?, video_url) WHERE id = ?",
+                           (status, youtube_url(video_url), record_id))
         await conn.commit()
     mark_leaderboard_dirty()
 

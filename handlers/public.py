@@ -8,6 +8,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.exceptions import TelegramBadRequest
 from utils.profile_pages import split_profile_text
 from utils.display import platform_label
+from utils.record_links import LinkedText, status_label, link_status
 from services.calculator import get_leaderboard
 from database.models import get_player_by_nick, get_player_records, get_levels_by_name, get_level_by_id
 
@@ -199,6 +200,7 @@ async def cmd_top_location(message: Message):
     await send_leaderboard(message, lb, f"Рейтинг по городу: {location}", f"loc={location}")
 
 def generate_player_profile_text(player, entry, records, ambiguous_names, *, expanded=False):
+    entities = []
     score_str = f"{entry['score']:.2f}" if entry else "—"
     place_str = f"{entry['rank']}" if entry else "Вне рейтинга — нет прохождений"
     
@@ -227,8 +229,10 @@ def generate_player_profile_text(player, entry, records, ambiguous_names, *, exp
             if not expanded and len(name) > 120:
                 name = name[:119] + "…"
             
-            status_text = "Подтверждено Demonlist" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
-            text += f"{i}. {name} (Топ-{c['position']}) — {status_text}\n"
+            status_text = status_label(c)
+            text += f"{i}. {name} (Топ-{c['position']}) — "
+            link_status(entities, text, status_text, c)
+            text += f"{status_text}\n"
         
     if progresses:
         text += "\n📈 Прогресс:\n"
@@ -255,7 +259,7 @@ def generate_player_profile_text(player, entry, records, ambiguous_names, *, exp
         if not expanded and len(grouped_progs) > 3:
             text += "Остальной прогресс — в полном списке.\n"
             
-    return text
+    return LinkedText(text, entities)
 
 def generate_player_profile_page(player, entry, records, ambiguous_names, page=0):
     # Page 0 is the compact profile. Positive pages preserve old callback links
@@ -278,7 +282,7 @@ def generate_player_profile_page(player, entry, records, ambiguous_names, page=0
     )
     page = max(1, min(page, len(pages)))
     text = pages[page - 1]
-    text += f"\n\n📄 Страница {page}/{len(pages)}"
+    text = LinkedText(text + f"\n\n📄 Страница {page}/{len(pages)}", text.entities)
     builder = InlineKeyboardBuilder()
     if page > 1:
         builder.button(
@@ -318,10 +322,12 @@ async def cb_profile(query: CallbackQuery, callback_data: ProfileCallback):
         if query.inline_message_id:
             await query.bot.edit_message_text(
                 text, inline_message_id=query.inline_message_id,
-                reply_markup=markup, parse_mode=None,
+                reply_markup=markup, parse_mode=None, entities=text.entities,
+                disable_web_page_preview=True,
             )
         elif isinstance(query.message, Message):
-            await query.message.edit_text(text, reply_markup=markup, parse_mode=None)
+            await query.message.edit_text(text, reply_markup=markup, parse_mode=None,
+                                          entities=text.entities, disable_web_page_preview=True)
     except TelegramBadRequest as exc:
         if "message is not modified" not in str(exc).lower():
             raise
@@ -353,7 +359,8 @@ async def cmd_profile(message: Message):
     ambiguous_names = await get_ambiguous_level_names()
     
     text, markup = generate_player_profile_page(player, entry, records, ambiguous_names)
-    await message.answer(text, reply_markup=markup, parse_mode=None)
+    await message.answer(text, reply_markup=markup, parse_mode=None,
+                         entities=text.entities, disable_web_page_preview=True)
 
 @router.message(Command("lvl", "level", ignore_case=True))
 async def cmd_level(message: Message):
@@ -382,6 +389,7 @@ async def cmd_level(message: Message):
     await render_level_info(levels[0], message)
 
 async def generate_level_info_text(level) -> str:
+    entities = []
     from database.connection import get_db_connection
     async with get_db_connection() as conn:
         cursor = await conn.execute('''
@@ -406,8 +414,10 @@ async def generate_level_info_text(level) -> str:
     if not completions:
         text += "- Пока никто\n"
     for c in completions:
-        status_text = "Подтверждено Demonlist" if c['status'] == 'Verified' else ("Внесено вручную" if c['status'] == 'Manual' else c['status'])
-        text += f"- {c['nickname']} ({status_text})\n"
+        status_text = status_label(c)
+        text += f"- {c['nickname']} ("
+        link_status(entities, text, status_text, c)
+        text += f"{status_text})\n"
         
     if progresses:
         from collections import defaultdict
@@ -421,18 +431,20 @@ async def generate_level_info_text(level) -> str:
         for nickname, p_list in grouped_progs.items():
             text += f"- {nickname} {' | '.join(p_list)}\n"
             
-    return text
+    return LinkedText(text, entities)
 
 async def render_level_info(level, message_or_query):
     text = await generate_level_info_text(level)
             
     if hasattr(message_or_query, 'message'):
         try:
-            await message_or_query.message.edit_text(text)
+            await message_or_query.message.edit_text(text, parse_mode=None, entities=text.entities,
+                                                    disable_web_page_preview=True)
         except Exception:
             pass
     else:
-        await message_or_query.answer(text)
+        await message_or_query.answer(text, parse_mode=None, entities=text.entities,
+                                      disable_web_page_preview=True)
 
 @router.callback_query(LvlCallback.filter())
 async def cb_lvl(query: CallbackQuery, callback_data: LvlCallback):
@@ -476,8 +488,8 @@ async def cmd_lvlp(message: Message):
             return
         await render_level_info(levels[0], message)
     else:
-        if (end_pos - start_pos + 1) > 30:
-            await message.answer("Слишком большой диапазон. Попробуйте /lp 1-30, затем /lp 31-60.")
+        if (end_pos - start_pos + 1) > 101:
+            await message.answer("За раз можно показать до 101 уровня. Например: /lp 1-101.")
             return
             
         levels = await get_levels_with_victors(start_pos, end_pos)
@@ -491,7 +503,8 @@ async def cmd_lvlp(message: Message):
             victors = lvl['victors_count']
             text += f"{lvl['position']}. {lvl['level_name']} [{creator_str}] — прошли: {victors}\n"
             
-        await message.answer(text)
+        for part in split_profile_text(text):
+            await message.answer(part, parse_mode=None)
 
 @router.message(Command("try", ignore_case=True))
 async def cmd_try(message: Message, state: FSMContext):

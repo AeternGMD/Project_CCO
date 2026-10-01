@@ -116,6 +116,7 @@ async def init_db():
                 progress_start INTEGER NOT NULL DEFAULT 0,
                 progress_end INTEGER NOT NULL,
                 status VARCHAR(50) NOT NULL,
+                video_url TEXT DEFAULT NULL,
                 FOREIGN KEY (player_id) REFERENCES players (id) ON DELETE CASCADE,
                 FOREIGN KEY (level_id) REFERENCES levels_cache (level_id) ON DELETE CASCADE
             )
@@ -142,6 +143,7 @@ async def init_db():
             )
         ''')
         
+        await conn.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT NULL")
         await conn.commit()
         
         try:

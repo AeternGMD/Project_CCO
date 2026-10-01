@@ -188,7 +188,7 @@ async def cb_record_action(query: CallbackQuery, callback_data: RecordCallback, 
     await query.message.delete()
     await query.answer()
 
-async def process_record_action(message: Message, action: str, player_id: int, level_id: int, progress_start: int, progress_end: int, bot: Bot = None):
+async def process_record_action(message: Message, action: str, player_id: int, level_id: int, progress_start: int, progress_end: int, bot: Bot = None, video_url=None):
     if bot is None:
         bot = message.bot
         
@@ -211,7 +211,7 @@ async def process_record_action(message: Message, action: str, player_id: int, l
                 return
                 
                 
-        await add_record(player_id, level_id, progress_start, progress_end, "Manual")
+        await add_record(player_id, level_id, progress_start, progress_end, "Manual", video_url=video_url)
         
         creator_str = dict(level).get('creator', 'Unknown')
         
@@ -418,6 +418,11 @@ async def cmd_restore(message: Message, bot: Bot):
     except Exception as e:
         await msg.edit_text(f"Восстановление не завершено. База могла измениться частично. Подробности: {e}")
     finally:
+        # Old SQL backups can recreate records without the new optional column.
+        from database.connection import get_db_connection
+        async with get_db_connection() as conn:
+            await conn.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT NULL")
+            await conn.commit()
         from database.models import invalidate_level_caches
         invalidate_level_caches()
         if os.path.exists(backup_path):
