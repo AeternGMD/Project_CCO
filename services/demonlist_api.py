@@ -194,17 +194,27 @@ async def _update_levels(progress_callback=None) -> int:
         raise DemonlistAPIError(f"database update failed: {exc}") from exc
 
 
-async def sync_player_records(player_id: int) -> bool:
+async def sync_player_records(player_id: int, progress_callback=None) -> bool:
     """Synchronize accepted 100% records for one configured player."""
     player = await get_player_by_id(player_id)
     if not player or not player["api_sync"] or player["demonlist_id"] == "-":
         return True
 
     demonlist_id = player["demonlist_id"]
+
+    async def report(stage, current, total=None):
+        if progress_callback:
+            try:
+                await progress_callback(stage, current, total)
+            except Exception:
+                logger.warning('Could not report record sync progress', exc_info=True)
+
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             offset = 0
             verified_videos = {}
+            received = 0
+            await report('download', received)
 
             while True:
                 api_records = await _request_collection(
@@ -219,6 +229,7 @@ async def sync_player_records(player_id: int) -> bool:
                 )
                 if not api_records:
                     break
+                received += len(api_records)
 
                 for record in api_records:
                     progress = record.get("percent", 100)
@@ -230,38 +241,32 @@ async def sync_player_records(player_id: int) -> bool:
                             video = youtube_url(record.get('video_url'))
                             verified_videos[level_id] = video or verified_videos.get(level_id)
 
+                await report('download', received)
+
                 if len(api_records) < PAGE_SIZE:
                     break
                 offset += PAGE_SIZE
 
         local_records = await get_player_records(player_id)
-        local_level_ids = set()
-
+        local_completions = {}
         for record in local_records:
-            local_level_ids.add(record["level_id"])
-            is_completion = (
-                record["progress_start"] == 0
-                and record["progress_end"] == 100
-            )
-            if is_completion and record["level_id"] in verified_videos:
-                video = verified_videos[record['level_id']]
-                if record['status'] == 'Verified' and (not video or video == youtube_url(record.get('video_url'))):
-                    continue
-                await update_record_status(record["id"], "Verified", video)
-                logger.info(
-                    "Verified record ID %s for player %s",
-                    record["id"],
-                    player["nickname"],
-                )
+            if record['progress_start'] == 0 and record['progress_end'] == 100:
+                local_completions.setdefault(record['level_id'], []).append(record)
 
-        for level_id in verified_videos:
-            if level_id not in local_level_ids:
-                await add_record(player_id, level_id, 0, 100, "Verified", video_url=verified_videos[level_id])
-                logger.info(
-                    "Auto-added verified level %s for player %s",
-                    level_id,
-                    player["nickname"],
-                )
+        total = len(verified_videos)
+        await report('records', 0, total)
+        for current, (level_id, video) in enumerate(verified_videos.items(), 1):
+            existing = local_completions.get(level_id, [])
+            if existing:
+                for record in existing:
+                    if record['status'] != 'Verified' or (video and video != youtube_url(record.get('video_url'))):
+                        await update_record_status(record['id'], 'Verified', video)
+            else:
+                # A partial progress record must not block the accepted completion.
+                await add_record(player_id, level_id, 0, 100, 'Verified', video_url=video)
+            await report('records', current, total)
+        logger.info('Synced player %s: %s completions, %s with YouTube links',
+                    player['nickname'], total, sum(bool(video) for video in verified_videos.values()))
         return True
     except Exception:
         logger.exception("Error syncing player %s records", player["nickname"])

@@ -23,12 +23,25 @@ def completion(i, video=URL):
 class LinkTests(unittest.TestCase):
     def test_youtube_validation_and_normalization(self):
         for url in (URL, URL + '&amp;ab_channel=Test', 'https://youtu.be/9aFft6uyyk8?t=4',
+                    URL + '?si=sharing-token', URL + '%3Fsi%3Dsharing-token',
                     'https://m.youtube.com/shorts/9aFft6uyyk8', 'https://youtube.com/live/9aFft6uyyk8'):
             self.assertEqual(URL, youtube_url(url))
         for url in (None, '', 'javascript:alert(1)', 'https://youtube.com.evil.test/watch?v=9aFft6uyyk8',
                     'https://youtube.com@evil.test/watch?v=9aFft6uyyk8', 'https://youtube.com/channel/test',
                     'https://youtu.be/not-video', 'https://[broken'):
             self.assertIsNone(youtube_url(url))
+
+    def test_fenya_urls_with_duplicate_question_mark(self):
+        cases = {
+            'https://www.youtube.com/watch?v=2cbTmRwfs0I?si=5SlgCS-Bw1sY1dzs': '2cbTmRwfs0I',
+            'https://www.youtube.com/watch?v=t6BBOIausH8?si=WwPvyT-Y2VyKtlSA': 't6BBOIausH8',
+            'https://www.youtube.com/watch?v=hhEIuysc7u4?si=evLmROm3QrnJ10Wr': 'hhEIuysc7u4',
+            'https://youtu.be/5-wbdFlLle4?si=OpuISfUkXdXK0El3': '5-wbdFlLle4',
+        }
+        for source, video_id in cases.items():
+            self.assertEqual(f'https://www.youtube.com/watch?v={video_id}', youtube_url(source))
+        self.assertIsNone(youtube_url('https://youtube.com.evil.test/watch?v=hhEIuysc7u4?si=x'))
+        self.assertIsNone(youtube_url('https://youtube.com/watch?v=hhEIuysc7u4EXTRA'))
 
     def test_status_links_survive_all_pages_and_keep_unicode_offsets(self):
         records = [completion(i, URL if i % 2 else None) for i in range(1, 301)]

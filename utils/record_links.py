@@ -25,6 +25,10 @@ def youtube_url(value):
                 return None
         else:
             return None
+        # Some Demonlist records store watch?v=VIDEO_ID?si=... instead of
+        # watch?v=VIDEO_ID&si=.... Only discard a query suffix, never truncate
+        # arbitrary IDs or relax the YouTube hostname allowlist.
+        video_id = video_id.split('?', 1)[0]
         if re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):
             return f'https://www.youtube.com/watch?v={video_id}'
     except ValueError:

@@ -313,27 +313,47 @@ async def cmd_info_update(message: Message):
         )
         return
     
-    await msg.edit_text(f"✅ Обновлено уровней: {updated}.\nСинхронизирую прохождения игроков…")
-    
-    # Run sync for all players in background
+    import time
+    from utils.sync_progress import record_sync_text, progress_bar
     from database.models import get_all_players
-    players = await get_all_players()
+    players = [p for p in await get_all_players()
+               if p['api_sync'] and p.get('demonlist_id') not in (None, '', '-')]
+    total_players = len(players)
+    await msg.edit_text(record_sync_text(updated, 0, total_players), parse_mode=None)
+    last_edit = time.monotonic()
+    completed = 0
     failed_profiles = 0
     for p in players:
-        if p['api_sync']:
-            if not await sync_player_records(p['id']):
-                failed_profiles += 1
 
+        async def show_record_progress(stage, current, total):
+            nonlocal last_edit
+            now = time.monotonic()
+            # One message, no more than one edit per two seconds across players.
+            # Rendering and Telegram calls are skipped entirely between edits.
+            if now - last_edit < 2:
+                return
+            last_edit = now
+            try:
+                await msg.edit_text(record_sync_text(updated, completed, total_players,
+                                    p['nickname'], stage, current, total), parse_mode=None)
+            except Exception:
+                pass  # A failed progress display must not interrupt synchronization.
+
+        if not await sync_player_records(p['id'], progress_callback=show_record_progress):
+            failed_profiles += 1
+        completed += 1
+
+    summary = (f'Обновлено уровней: {updated}\n'
+               f'Обработано игроков: {progress_bar(completed, total_players)}\n'
+               f'Успешно: {completed - failed_profiles}; с ошибкой: {failed_profiles}.')
     if failed_profiles:
         await msg.edit_text(
-            f"⚠️ Уровни обновлены, но часть профилей не синхронизирована.\n"
-            f"Обновлено уровней: {updated}\n"
-            f"Профилей с ошибкой: {failed_profiles}"
+            '⚠️ Синхронизация завершена с ошибками.\n' + summary
         )
     else:
         await msg.edit_text(
-            f"✅ Уровни и профили с включённой синхронизацией обновлены.\n"
-            f"Обновлено уровней: {updated}"
+            ('✅ Синхронизация завершена.\n' if total_players else
+             '✅ Уровни обновлены. Нет игроков с включённой синхронизацией и ID Demonlist.\n') + summary
         )
 
 @router.message(Command("backup", "bkp", ignore_case=True))
