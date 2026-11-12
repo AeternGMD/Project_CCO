@@ -178,8 +178,15 @@ class LinkHandlerTests(unittest.IsolatedAsyncioTestCase):
             yield conn
 
         with patch.object(connection, 'get_db_connection', connect):
-            text = await public.generate_level_info_text(completion(1))
-        entity = text.entities[0]
+            level = dict(completion(1), ingame_id=123456789)
+            text = await public.generate_level_info_text(level)
+            without_id = await public.generate_level_info_text(completion(1))
+        code_entity = next(e for e in text.entities if e.type == 'code')
+        self.assertEqual('123456789', text.encode('utf-16-le')[
+            code_entity.offset*2:(code_entity.offset+code_entity.length)*2].decode('utf-16-le'))
+        self.assertNotIn('ID в игре:', without_id)
+        self.assertFalse(any(e.type == 'code' for e in without_id.entities))
+        entity = next(e for e in text.entities if e.type == 'text_link')
         self.assertEqual(URL, entity.url)
         self.assertEqual('Подтверждено Demonlist', text.encode('utf-16-le')[
             entity.offset*2:(entity.offset+entity.length)*2].decode('utf-16-le'))

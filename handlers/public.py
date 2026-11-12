@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, MessageEntity
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -407,8 +407,15 @@ async def generate_level_info_text(level) -> str:
     
     creator_str = dict(level).get('creator', 'Unknown')
     ingame_id = dict(level).get('ingame_id')
-    id_str = f" | ID в игре: {ingame_id}" if ingame_id else ""
-    text = f"🌋 {level['level_name']} [{creator_str}] (Топ-{level['position']}{id_str})\n\n"
+    text = f"🌋 {level['level_name']} [{creator_str}] (Топ-{level['position']}"
+    if ingame_id:
+        text += " | ID в игре: "
+        entities.append(MessageEntity(
+            type='code', offset=len(text.encode('utf-16-le')) // 2,
+            length=len(str(ingame_id)),
+        ))
+        text += str(ingame_id)
+    text += ")\n\n"
     
     text += f"🏆 Прошли ({len(completions)}):\n"
     if not completions:
